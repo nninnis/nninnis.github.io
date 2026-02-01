@@ -1,0 +1,30 @@
+title: nninnis
+description: 개발 기록
+url: https://nninnis.github.io
+author:
+  name: nninnis
+lang: ko
+timezone: Asia/Seoul
+
+permalink: pretty
+
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+
+defaults:
+  - scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: post
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: default
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - README.md
