@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ko">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>Light Collector - Healing Shooter</title>
+    <meta name="description" content="A cozy healing game where a cat collects falling stars on a rooftop at night." />
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <canvas id="game"></canvas>
+
+    <!-- HUD (hidden until game starts) -->
+    <div class="hud" id="hud">
+        <div class="score" id="score">0</div>
+        <div class="timer" id="timer">60.0</div>
+        <div class="combo" id="combo">x1.0</div>
+    </div>
+
+    <!-- Main Screen UI -->
+    <div class="main-ui" id="mainUI">
+        <div class="title">Light Collector</div>
+        <div class="subtitle">Tap anywhere to start</div>
+        <div class="mode-toggle">
+            <label class="toggle-label">
+                <span class="mode-label">60s</span>
+                <input type="checkbox" id="challengeCheckbox" />
+                <span class="toggle-visual"></span>
+                <span class="mode-label">Endless</span>
+            </label>
+        </div>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div class="overlay" id="overlay">
+        <div class="panel">
+            <div class="result" id="result"></div>
+            <div class="restart-hint">Tap to play again</div>
+        </div>
+    </div>
+
+    <script src="main.js"></script>
+</body>
+</html>
