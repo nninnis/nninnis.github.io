@@ -1,0 +1,238 @@
+/* Light Collector - Healing Shooter */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    background: #0b0f1a;
+    font-family: ui-rounded, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: #f2f6ff;
+    overscroll-behavior: none;
+    overflow: hidden;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+#game {
+    display: block;
+    width: 100vw;
+    height: 100vh;
+    touch-action: none;
+}
+
+/* HUD */
+.hud {
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    display: flex;
+    justify-content: space-between;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 10;
+}
+
+.hud.visible {
+    opacity: 1;
+}
+
+.hud .score,
+.hud .timer,
+.hud .combo {
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    background: rgba(15, 23, 42, 0.5);
+    padding: 8px 12px;
+    border-radius: 8px;
+    backdrop-filter: blur(6px);
+    text-shadow: 0 0 8px rgba(170, 220, 255, 0.3);
+}
+
+.hud .combo {
+    transition: transform 0.12s ease, color 0.15s ease;
+}
+
+.combo-pop {
+    transform: scale(1.15);
+    color: #aee3ff !important;
+}
+
+/* Main Screen UI */
+.main-ui {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    z-index: 20;
+}
+
+.main-ui.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.main-ui .title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(140, 200, 255, 0.5);
+    margin-bottom: 8px;
+    letter-spacing: 1px;
+}
+
+.main-ui .subtitle {
+    font-size: 16px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 32px;
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+}
+
+.mode-toggle {
+    pointer-events: auto;
+}
+
+.toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.toggle-label input[type="checkbox"] {
+    display: none;
+}
+
+.mode-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    transition: color 0.2s ease;
+}
+
+.mode-label:first-of-type {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.toggle-label input[type="checkbox"]:checked ~ .mode-label:first-of-type {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.toggle-label input[type="checkbox"]:checked ~ .mode-label:last-of-type {
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.toggle-visual {
+    width: 48px;
+    height: 26px;
+    background: rgba(15, 23, 42, 0.6);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 13px;
+    position: relative;
+    transition: all 0.2s ease;
+    backdrop-filter: blur(6px);
+}
+
+.toggle-visual::before {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    transition: all 0.2s ease;
+}
+
+.toggle-label input[type="checkbox"]:checked + .toggle-visual {
+    background: rgba(112, 170, 255, 0.5);
+    border-color: rgba(190, 230, 255, 0.6);
+}
+
+.toggle-label input[type="checkbox"]:checked + .toggle-visual::before {
+    transform: translateX(22px);
+    background: rgba(255, 255, 255, 0.9);
+}
+
+/* Game Over Overlay */
+.overlay {
+    position: fixed;
+    inset: 0;
+    display: none;
+    place-items: center;
+    background: radial-gradient(600px 600px at 50% 50%, rgba(80, 120, 200, 0.15), rgba(0, 0, 0, 0.7));
+    pointer-events: none;
+    z-index: 30;
+}
+
+.overlay.show {
+    display: grid;
+    pointer-events: auto;
+}
+
+.overlay .panel {
+    text-align: center;
+    background: rgba(17, 24, 39, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 28px 40px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+}
+
+.result {
+    font-weight: 700;
+    font-size: 20px;
+    color: #f7faff;
+    text-shadow: 0 0 12px rgba(140, 190, 255, 0.5);
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+}
+
+.restart-hint {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.5);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+/* Canvas rendering */
+canvas {
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+}
+
+/* Mobile adjustments */
+@media (max-width: 480px) {
+    .main-ui .title {
+        font-size: 26px;
+    }
+
+    .main-ui .subtitle {
+        font-size: 14px;
+    }
+
+    .hud .score,
+    .hud .timer,
+    .hud .combo {
+        font-size: 12px;
+        padding: 6px 10px;
+    }
+}
