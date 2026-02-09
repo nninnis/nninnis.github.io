@@ -12,10 +12,9 @@
   <link rel="alternate" type="application/rss+xml" title="{{ site.title }}" href="{{ '/feed.xml' | relative_url }}">
   <script>
     (function() {
-      const saved = localStorage.getItem('theme');
-      if (saved) {
-        document.documentElement.setAttribute('data-theme', saved);
-      }
+      var saved = localStorage.getItem('theme');
+      var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
     })();
   </script>
   {% seo %}
@@ -42,20 +41,20 @@
   </div>
   <script>
     (function() {
-      const toggle = document.querySelector('.theme-toggle');
+      var toggle = document.querySelector('.theme-toggle');
+      var mq = window.matchMedia('(prefers-color-scheme: dark)');
+
       toggle.addEventListener('click', function() {
-        const current = document.documentElement.getAttribute('data-theme');
-        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        let next;
-        if (current === 'dark') {
-          next = 'light';
-        } else if (current === 'light') {
-          next = 'dark';
-        } else {
-          next = prefersDark ? 'light' : 'dark';
-        }
+        var current = document.documentElement.getAttribute('data-theme');
+        var next = current === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', next);
         localStorage.setItem('theme', next);
+      });
+
+      mq.addEventListener('change', function(e) {
+        var next = e.matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.removeItem('theme');
       });
     })();
   </script>
