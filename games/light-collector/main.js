@@ -240,6 +240,7 @@
         player.y = H - 60;
         player.cooldown = 0;
         moveTouchId = null;
+        lastTouchX = 0;
 
         // Pre-spawn stars
         for (let i = 0; i < 5; i++) spawnStar(true);
@@ -268,11 +269,12 @@
         if (player.cooldown > 0) return;
         player.cooldown = player.cooldownMax;
 
+        const waveR = isTouchDevice ? 11 : 7;
         waves.push({
             x: player.x,
             y: player.y - player.h * 0.5 - 6,
             vy: -500,
-            r: 7,
+            r: waveR,
             life: 1,
         });
 
@@ -705,26 +707,28 @@
     }
 
     function renderWaves() {
+        const s = isTouchDevice ? 1.5 : 1;
         for (const w of waves) {
             const rot = -performance.now() * 0.003 + w.x * 0.1;
 
             // Outer glow
-            const grd = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, 24);
+            const glowR = 24 * s;
+            const grd = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, glowR);
             grd.addColorStop(0, `rgba(200, 240, 255, ${w.life * 0.5})`);
             grd.addColorStop(1, "rgba(120, 200, 255, 0)");
             ctx.fillStyle = grd;
             ctx.beginPath();
-            ctx.arc(w.x, w.y, 24, 0, Math.PI * 2);
+            ctx.arc(w.x, w.y, glowR, 0, Math.PI * 2);
             ctx.fill();
 
             // Star shape
             ctx.fillStyle = `rgba(220, 245, 255, ${w.life * 0.9})`;
-            drawStar(w.x, w.y, 5, 12, 5, rot);
+            drawStar(w.x, w.y, 5, 12 * s, 5 * s, rot);
             ctx.fill();
 
             // Bright core
             ctx.fillStyle = `rgba(255, 255, 255, ${w.life * 0.95})`;
-            drawStar(w.x, w.y, 5, 7, 3, rot);
+            drawStar(w.x, w.y, 5, 7 * s, 3 * s, rot);
             ctx.fill();
         }
     }
