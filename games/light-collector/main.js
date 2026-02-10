@@ -47,6 +47,9 @@
 
     // Input
     const keys = new Set();
+    const isTouchDevice = "ontouchstart" in window;
+    let moveTouchId = null;
+    let shootTouchActive = false;
 
     // World dimensions
     let W = 0, H = 0;
@@ -235,6 +238,8 @@
         player.x = clampPlayerX(W * 0.5);
         player.y = H - 60;
         player.cooldown = 0;
+        moveTouchId = null;
+        shootTouchActive = false;
 
         // Pre-spawn stars
         for (let i = 0; i < 5; i++) spawnStar(true);
@@ -336,34 +341,103 @@
         keys.delete(e.key.toLowerCase());
     });
 
-    // Pointer events
-    function handlePointerDown(e) {
-        e.preventDefault();
-        ensureAudio();
+    // Touch controls (iOS Safari compatible, multi-touch: bottom=move, top=shoot)
+    if (isTouchDevice) {
+        canvas.addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            ensureAudio();
 
-        if (state === STATE.MAIN) {
-            startGame();
-        } else if (state === STATE.PLAY) {
-            shoot();
-        } else if (state === STATE.OVER) {
-            startGame();
+            if (state === STATE.MAIN || state === STATE.OVER) {
+                startGame();
+                return;
+            }
+            if (state !== STATE.PLAY) return;
+
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                if (t.clientY > H * 0.5 && moveTouchId === null) {
+                    moveTouchId = t.identifier;
+                    player.x = clampPlayerX(t.clientX);
+                } else {
+                    shootTouchActive = true;
+                    shoot();
+                }
+            }
+        }, { passive: false });
+
+        canvas.addEventListener("touchmove", (e) => {
+            e.preventDefault();
+            if (state !== STATE.PLAY) return;
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                const t = e.changedTouches[i];
+                if (t.identifier === moveTouchId) {
+                    player.x = clampPlayerX(t.clientX);
+                }
+            }
+        }, { passive: false });
+
+        function releaseTouches(e) {
+            for (let i = 0; i < e.changedTouches.length; i++) {
+                if (e.changedTouches[i].identifier === moveTouchId) {
+                    moveTouchId = null;
+                }
+            }
+            let hasShoot = false;
+            for (let i = 0; i < e.touches.length; i++) {
+                if (e.touches[i].identifier !== moveTouchId) hasShoot = true;
+            }
+            shootTouchActive = hasShoot;
         }
+
+        canvas.addEventListener("touchend", releaseTouches);
+        canvas.addEventListener("touchcancel", releaseTouches);
+
+        mainUI.addEventListener("touchstart", (e) => {
+            const t = e.changedTouches[0];
+            const el = document.elementFromPoint(t.clientX, t.clientY);
+            if (el && (el === challengeCheckbox || el.closest(".mode-toggle"))) return;
+            e.preventDefault();
+            ensureAudio();
+            if (state === STATE.MAIN) startGame();
+        }, { passive: false });
+
+        overlay.addEventListener("touchstart", (e) => {
+            e.preventDefault();
+            ensureAudio();
+            if (state === STATE.OVER) startGame();
+        }, { passive: false });
+
+    } else {
+        // Desktop: pointer events
+        canvas.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            ensureAudio();
+            if (state === STATE.MAIN) startGame();
+            else if (state === STATE.PLAY) shoot();
+            else if (state === STATE.OVER) startGame();
+        });
+
+        canvas.addEventListener("pointermove", (e) => {
+            if (state === STATE.PLAY && e.clientY > H * 0.5) {
+                player.x = clampPlayerX(e.clientX);
+            }
+        });
+
+        mainUI.addEventListener("pointerdown", (e) => {
+            if (e.target === challengeCheckbox || e.target.closest(".mode-toggle")) return;
+            e.preventDefault();
+            ensureAudio();
+            if (state === STATE.MAIN) startGame();
+        });
+
+        overlay.addEventListener("pointerdown", (e) => {
+            e.preventDefault();
+            ensureAudio();
+            if (state === STATE.OVER) startGame();
+        });
     }
 
-    canvas.addEventListener("pointerdown", handlePointerDown);
-    mainUI.addEventListener("pointerdown", (e) => {
-        if (e.target === challengeCheckbox || e.target.closest(".mode-toggle")) return;
-        handlePointerDown(e);
-    });
-    overlay.addEventListener("pointerdown", handlePointerDown);
-
-    canvas.addEventListener("pointermove", (e) => {
-        if (state === STATE.PLAY && e.clientY > H * 0.5) {
-            player.x = clampPlayerX(e.clientX);
-        }
-    });
-
-    // Prevent default touch behaviors
+    // Prevent scroll/zoom on mobile
     document.addEventListener("touchmove", (e) => e.preventDefault(), { passive: false });
 
     // Mode toggle
@@ -464,8 +538,8 @@
         if (right) player.x += player.speed * dt;
         player.x = clampPlayerX(player.x);
 
-        // Continuous shooting with space
-        if (keys.has(" ")) shoot();
+        // Continuous shooting with space or touch hold
+        if (keys.has(" ") || shootTouchActive) shoot();
 
         // Cooldown
         player.cooldown = Math.max(0, player.cooldown - dt);
@@ -795,12 +869,34 @@
         }
     }
 
+    function renderTouchHint() {
+        if (!isTouchDevice || state !== STATE.PLAY || modeElapsed > 2.5) return;
+        const alpha = clamp(1 - modeElapsed / 2.5, 0, 0.5);
+        const midY = H * 0.5;
+
+        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.35})`;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([8, 8]);
+        ctx.beginPath();
+        ctx.moveTo(20, midY);
+        ctx.lineTo(W - 20, midY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.6})`;
+        ctx.font = "12px system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("TAP TO SHOOT", W * 0.5, midY - 10);
+        ctx.fillText("DRAG TO MOVE", W * 0.5, midY + 22);
+    }
+
     function render(progress) {
         renderBackground(progress);
         renderStars();
         renderWaves();
         renderPlayer();
         renderParticles();
+        renderTouchHint();
     }
 
     // Main Loop
