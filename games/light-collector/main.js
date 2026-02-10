@@ -337,7 +337,7 @@
     });
 
     // Pointer events
-    canvas.addEventListener("pointerdown", (e) => {
+    function handlePointerDown(e) {
         e.preventDefault();
         ensureAudio();
 
@@ -348,7 +348,14 @@
         } else if (state === STATE.OVER) {
             startGame();
         }
+    }
+
+    canvas.addEventListener("pointerdown", handlePointerDown);
+    mainUI.addEventListener("pointerdown", (e) => {
+        if (e.target === challengeCheckbox || e.target.closest(".mode-toggle")) return;
+        handlePointerDown(e);
     });
+    overlay.addEventListener("pointerdown", handlePointerDown);
 
     canvas.addEventListener("pointermove", (e) => {
         if (state === STATE.PLAY && e.clientY > H * 0.5) {
