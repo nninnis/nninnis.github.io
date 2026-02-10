@@ -50,6 +50,7 @@
     const keys = new Set();
     const isTouchDevice = "ontouchstart" in window;
     let moveTouchId = null;
+    let lastTouchX = 0;
 
     // World dimensions
     let W = 0, H = 0;
@@ -355,7 +356,7 @@
             if (moveTouchId === null) {
                 const t = e.changedTouches[0];
                 moveTouchId = t.identifier;
-                player.x = clampPlayerX(t.clientX);
+                lastTouchX = t.clientX;
             }
         }, { passive: false });
 
@@ -365,7 +366,9 @@
             for (let i = 0; i < e.changedTouches.length; i++) {
                 const t = e.changedTouches[i];
                 if (t.identifier === moveTouchId) {
-                    player.x = clampPlayerX(t.clientX);
+                    const dx = t.clientX - lastTouchX;
+                    player.x = clampPlayerX(player.x + dx);
+                    lastTouchX = t.clientX;
                 }
             }
         }, { passive: false });
@@ -706,22 +709,22 @@
             const rot = -performance.now() * 0.003 + w.x * 0.1;
 
             // Outer glow
-            const grd = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, 16);
+            const grd = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, 24);
             grd.addColorStop(0, `rgba(200, 240, 255, ${w.life * 0.5})`);
             grd.addColorStop(1, "rgba(120, 200, 255, 0)");
             ctx.fillStyle = grd;
             ctx.beginPath();
-            ctx.arc(w.x, w.y, 16, 0, Math.PI * 2);
+            ctx.arc(w.x, w.y, 24, 0, Math.PI * 2);
             ctx.fill();
 
             // Star shape
             ctx.fillStyle = `rgba(220, 245, 255, ${w.life * 0.9})`;
-            drawStar(w.x, w.y, 5, 8, 3.5, rot);
+            drawStar(w.x, w.y, 5, 12, 5, rot);
             ctx.fill();
 
             // Bright core
             ctx.fillStyle = `rgba(255, 255, 255, ${w.life * 0.95})`;
-            drawStar(w.x, w.y, 5, 4.5, 2, rot);
+            drawStar(w.x, w.y, 5, 7, 3, rot);
             ctx.fill();
         }
     }
