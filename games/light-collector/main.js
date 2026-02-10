@@ -42,7 +42,7 @@
 
     // Combo System
     const COMBO_WINDOW = 2.0;
-    const COMBO_MAX = 5.0;
+    const COMBO_MAX = Infinity;
     let combo = 1.0;
     let comboTimer = 0;
 
@@ -270,7 +270,8 @@
 
     function shoot() {
         if (player.cooldown > 0) return;
-        player.cooldown = mode === MODE.ENDLESS ? player.cooldownMaxEndless : player.cooldownMax;
+        const baseCd = mode === MODE.ENDLESS ? player.cooldownMaxEndless : player.cooldownMax;
+        player.cooldown = isTouchDevice ? baseCd * 1.6 : baseCd;
 
         const waveR = isTouchDevice ? 11 : 7;
         waves.push({
@@ -597,10 +598,10 @@
 
                     // Score calculation
                     const base = Math.floor(10 + s.r * 2);
-                    const rareBonus = s.rare ? 30 : 0;
+                    const rareBonus = s.rare ? 100 : 0;
 
                     comboTimer = COMBO_WINDOW;
-                    combo = Math.min(COMBO_MAX, combo + 0.25);
+                    combo += s.rare ? 0.5 : 0.25;
                     maxCombo = Math.max(maxCombo, combo);
 
                     const gained = Math.floor((base + rareBonus) * combo);
@@ -639,7 +640,7 @@
         if (comboTimer > 0) {
             comboTimer -= dt;
         } else if (combo > 1.0) {
-            combo = Math.max(1.0, combo - dt * 0.6);
+            combo = Math.max(1.0, combo - dt * 0.4);
             if (comboEl) comboEl.textContent = "x" + combo.toFixed(1);
         }
 
