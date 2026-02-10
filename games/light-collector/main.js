@@ -77,7 +77,7 @@
         speed: 380,
         cooldown: 0,
         cooldownMax: 0.24,
-        cooldownMaxEndless: 0.10,
+        cooldownMaxEndless: 0.20,
     };
 
     // Entities
@@ -254,11 +254,13 @@
     function spawnStar(initial = false) {
         const isRare = Math.random() < 0.08;
         const baseHue = rnd(180, 220);
+        // Endless: stars fall faster over time (1x → ~2x at 2min)
+        const speedMult = mode === MODE.ENDLESS ? 1 + modeElapsed * 0.008 : 1;
         stars.push({
             x: rnd(30, W - 30),
             y: initial ? rnd(-H * 0.6, -20) : -20,
             r: isRare ? rnd(7, 10) : rnd(4, 7),
-            vy: isRare ? rnd(40, 65) : rnd(30, 55),
+            vy: (isRare ? rnd(40, 65) : rnd(30, 55)) * speedMult,
             hue: baseHue,
             tw: rnd(0.5, 1.0),
             rare: isRare,
@@ -551,7 +553,7 @@
             spawnStar(false);
             const interval = mode === MODE.TIMED
                 ? clamp(1.3 - (sessionSeconds - timeLeft) * 0.004, 0.7, 1.3)
-                : clamp(1.2 - modeElapsed * 0.0015, 0.8, 1.2);
+                : clamp(1.2 - modeElapsed * 0.004, 0.35, 1.2);
             starTimer = interval;
         }
 

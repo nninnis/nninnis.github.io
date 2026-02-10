@@ -11,7 +11,9 @@ description: "옥상 위 고양이가 떨어지는 별을 모으는 힐링 슈�
 - **PC**: 좌우 화살표 / A,D로 이동, 스페이스바 / 클릭으로 발사
 - **모바일**: 드래그로 이동, 손 떼면 발사
 
-**모드**: 60초 타임어택 / 무한 모드 (별을 놓치면 종료)
+**모드**
+- **60초 모드**: 제한 시간 안에 최대한 많은 별을 모으세요
+- **무한 모드**: 자동 연사! 이동에만 집중하세요 (별을 놓치면 종료)
 
 <div style="position: relative; width: 100%; padding-top: 75%; margin: 1.5rem 0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.3);">
   <iframe
