@@ -247,7 +247,7 @@
         for (let i = 0; i < 5; i++) spawnStar(true);
 
         scoreEl.textContent = "0";
-        if (comboEl) comboEl.textContent = "x1.0";
+        if (comboEl) comboEl.textContent = "x1";
         updateTimerHUD();
     }
 
@@ -468,7 +468,7 @@
         state = STATE.OVER;
 
         const reasonText = reason === "miss" ? "Star missed!" : "Time's up!";
-        const summary = `${reasonText}\nScore: ${score} | Max Combo: x${maxCombo.toFixed(1)}`;
+        const summary = `${reasonText}\nScore: ${score} | Max Combo: x${Math.floor(maxCombo)}`;
 
         showResult(summary);
         overlay.classList.add("show");
@@ -567,7 +567,8 @@
 
             // Star fell off screen
             if (s.y > H + 30) {
-                if (mode === MODE.ENDLESS) {
+                // Endless: only miss if star was visible on screen
+                if (mode === MODE.ENDLESS && s.x >= 0 && s.x <= W) {
                     endGame("miss");
                     return;
                 }
@@ -601,7 +602,7 @@
                     const rareBonus = s.rare ? 100 : 0;
 
                     comboTimer = COMBO_WINDOW;
-                    combo += s.rare ? 0.5 : 0.25;
+                    combo += 1;
                     maxCombo = Math.max(maxCombo, combo);
 
                     const gained = Math.floor((base + rareBonus) * combo);
@@ -610,7 +611,7 @@
 
                     // Combo display
                     if (comboEl) {
-                        comboEl.textContent = "x" + combo.toFixed(1);
+                        comboEl.textContent = "x" + Math.floor(combo);
                         comboEl.classList.add("combo-pop");
                         setTimeout(() => comboEl.classList.remove("combo-pop"), 100);
                     }
@@ -641,7 +642,7 @@
             comboTimer -= dt;
         } else if (combo > 1.0) {
             combo = Math.max(1.0, combo - dt * 0.4);
-            if (comboEl) comboEl.textContent = "x" + combo.toFixed(1);
+            if (comboEl) comboEl.textContent = "x" + Math.floor(combo);
         }
 
         // Update particles
