@@ -4,7 +4,8 @@
  *
  * Controls:
  * - Arrow keys / A,D: Move left/right
- * - Space / Click: Shoot waves to collect stars
+ * - Space / Click: Shoot stars to collect falling stars
+ * - Mobile: Drag to move, release to shoot
  *
  * Modes:
  * - 60s Mode: Collect stars from night to dawn
@@ -49,7 +50,6 @@
     const keys = new Set();
     const isTouchDevice = "ontouchstart" in window;
     let moveTouchId = null;
-    let shootTouchActive = false;
 
     // World dimensions
     let W = 0, H = 0;
@@ -239,7 +239,6 @@
         player.y = H - 60;
         player.cooldown = 0;
         moveTouchId = null;
-        shootTouchActive = false;
 
         // Pre-spawn stars
         for (let i = 0; i < 5; i++) spawnStar(true);
@@ -341,7 +340,7 @@
         keys.delete(e.key.toLowerCase());
     });
 
-    // Touch controls (iOS Safari compatible, multi-touch: bottom=move, top=shoot)
+    // Touch controls (iOS Safari compatible, drag=move, release=shoot)
     if (isTouchDevice) {
         canvas.addEventListener("touchstart", (e) => {
             e.preventDefault();
@@ -353,15 +352,10 @@
             }
             if (state !== STATE.PLAY) return;
 
-            for (let i = 0; i < e.changedTouches.length; i++) {
-                const t = e.changedTouches[i];
-                if (t.clientY > H * 0.5 && moveTouchId === null) {
-                    moveTouchId = t.identifier;
-                    player.x = clampPlayerX(t.clientX);
-                } else {
-                    shootTouchActive = true;
-                    shoot();
-                }
+            if (moveTouchId === null) {
+                const t = e.changedTouches[0];
+                moveTouchId = t.identifier;
+                player.x = clampPlayerX(t.clientX);
             }
         }, { passive: false });
 
@@ -380,13 +374,9 @@
             for (let i = 0; i < e.changedTouches.length; i++) {
                 if (e.changedTouches[i].identifier === moveTouchId) {
                     moveTouchId = null;
+                    if (state === STATE.PLAY) shoot();
                 }
             }
-            let hasShoot = false;
-            for (let i = 0; i < e.touches.length; i++) {
-                if (e.touches[i].identifier !== moveTouchId) hasShoot = true;
-            }
-            shootTouchActive = hasShoot;
         }
 
         canvas.addEventListener("touchend", releaseTouches);
@@ -538,8 +528,8 @@
         if (right) player.x += player.speed * dt;
         player.x = clampPlayerX(player.x);
 
-        // Continuous shooting with space or touch hold
-        if (keys.has(" ") || shootTouchActive) shoot();
+        // Continuous shooting with space hold
+        if (keys.has(" ")) shoot();
 
         // Cooldown
         player.cooldown = Math.max(0, player.cooldown - dt);
@@ -698,21 +688,41 @@
         }
     }
 
+    function drawStar(cx, cy, spikes, outerR, innerR, rotation) {
+        ctx.beginPath();
+        for (let i = 0; i < spikes * 2; i++) {
+            const r = i % 2 === 0 ? outerR : innerR;
+            const angle = rotation + (i * Math.PI) / spikes;
+            const x = cx + Math.cos(angle) * r;
+            const y = cy + Math.sin(angle) * r;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+    }
+
     function renderWaves() {
         for (const w of waves) {
-            const grd = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, 18);
-            grd.addColorStop(0, `rgba(200, 240, 255, ${w.life * 0.9})`);
+            const rot = -performance.now() * 0.003 + w.x * 0.1;
+
+            // Outer glow
+            const grd = ctx.createRadialGradient(w.x, w.y, 0, w.x, w.y, 16);
+            grd.addColorStop(0, `rgba(200, 240, 255, ${w.life * 0.5})`);
             grd.addColorStop(1, "rgba(120, 200, 255, 0)");
             ctx.fillStyle = grd;
             ctx.beginPath();
-            ctx.arc(w.x, w.y, 18, 0, Math.PI * 2);
+            ctx.arc(w.x, w.y, 16, 0, Math.PI * 2);
             ctx.fill();
 
-            ctx.strokeStyle = `rgba(180, 220, 255, ${w.life * 0.8})`;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(w.x, w.y, 7, 0, Math.PI * 2);
-            ctx.stroke();
+            // Star shape
+            ctx.fillStyle = `rgba(220, 245, 255, ${w.life * 0.9})`;
+            drawStar(w.x, w.y, 5, 8, 3.5, rot);
+            ctx.fill();
+
+            // Bright core
+            ctx.fillStyle = `rgba(255, 255, 255, ${w.life * 0.95})`;
+            drawStar(w.x, w.y, 5, 4.5, 2, rot);
+            ctx.fill();
         }
     }
 
@@ -870,24 +880,13 @@
     }
 
     function renderTouchHint() {
-        if (!isTouchDevice || state !== STATE.PLAY || modeElapsed > 2.5) return;
-        const alpha = clamp(1 - modeElapsed / 2.5, 0, 0.5);
-        const midY = H * 0.5;
-
-        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.35})`;
-        ctx.lineWidth = 1;
-        ctx.setLineDash([8, 8]);
-        ctx.beginPath();
-        ctx.moveTo(20, midY);
-        ctx.lineTo(W - 20, midY);
-        ctx.stroke();
-        ctx.setLineDash([]);
+        if (!isTouchDevice || state !== STATE.PLAY || modeElapsed > 3.0) return;
+        const alpha = clamp(1 - modeElapsed / 3.0, 0, 0.5);
 
         ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.6})`;
         ctx.font = "12px system-ui, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("TAP TO SHOOT", W * 0.5, midY - 10);
-        ctx.fillText("DRAG TO MOVE", W * 0.5, midY + 22);
+        ctx.fillText("DRAG TO MOVE · RELEASE TO SHOOT", W * 0.5, H * 0.45);
     }
 
     function render(progress) {
