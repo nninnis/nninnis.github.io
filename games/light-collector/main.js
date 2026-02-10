@@ -77,6 +77,7 @@
         speed: 380,
         cooldown: 0,
         cooldownMax: 0.24,
+        cooldownMaxEndless: 0.10,
     };
 
     // Entities
@@ -267,7 +268,7 @@
 
     function shoot() {
         if (player.cooldown > 0) return;
-        player.cooldown = player.cooldownMax;
+        player.cooldown = mode === MODE.ENDLESS ? player.cooldownMaxEndless : player.cooldownMax;
 
         const waveR = isTouchDevice ? 11 : 7;
         waves.push({
@@ -379,7 +380,8 @@
             for (let i = 0; i < e.changedTouches.length; i++) {
                 if (e.changedTouches[i].identifier === moveTouchId) {
                     moveTouchId = null;
-                    if (state === STATE.PLAY) shoot();
+                    // Endless mode auto-fires, so skip manual shoot on release
+                    if (state === STATE.PLAY && mode !== MODE.ENDLESS) shoot();
                 }
             }
         }
@@ -533,8 +535,12 @@
         if (right) player.x += player.speed * dt;
         player.x = clampPlayerX(player.x);
 
-        // Continuous shooting with space hold
-        if (keys.has(" ")) shoot();
+        // Shooting: endless mode auto-fires like a machine gun
+        if (mode === MODE.ENDLESS) {
+            shoot();
+        } else if (keys.has(" ")) {
+            shoot();
+        }
 
         // Cooldown
         player.cooldown = Math.max(0, player.cooldown - dt);
@@ -893,7 +899,10 @@
         ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.6})`;
         ctx.font = "12px system-ui, sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText("DRAG TO MOVE · RELEASE TO SHOOT", W * 0.5, H * 0.45);
+        const hint = mode === MODE.ENDLESS
+            ? "DRAG TO MOVE · AUTO FIRE"
+            : "DRAG TO MOVE · RELEASE TO SHOOT";
+        ctx.fillText(hint, W * 0.5, H * 0.45);
     }
 
     function render(progress) {
