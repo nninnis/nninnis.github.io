@@ -24,7 +24,16 @@ Claude Code의 컨텍스트 윈도우는 200k 토큰. 이 안에 이것저것 �
 
 문제는 **매 메시지마다 이 전체를 처리한다**는 것. 세션 초반에 디버깅하다 나온 스택트레이스, 읽었다가 안 쓴 파일, 이미 해결된 에러 로그 — 이게 다 뒤에 오는 질문의 비용에 포함된다.
 
-현재 세션 비용은 언제든 `/cost`로 확인 가능.
+**현재 사용량 확인 방법:**
+
+| 명령어 | 대상 | 내용 |
+|--------|------|------|
+| `/context` | 모든 사용자 | 컨텍스트 윈도우 사용량 상세 분류 (시스템/도구/파일/대화) |
+| `/cost` | API 키 사용자 | 세션 토큰 수 + 비용 |
+| `/stats` | 구독제 사용자 | 일별 사용량, 세션 히스토리, 모델 선호도 |
+| `/usage` | 구독제 사용자 | 플랜 한도 및 현재 속도 제한 상태 |
+
+Claude Max/Pro 구독제는 토큰당 과금이 아니라 월정액이라 `/cost`가 의미 없다. `/stats`와 `/usage`를 쓴다.
 
 ---
 
@@ -322,21 +331,74 @@ claude -p "테스트 실행하고 실패한 것만 보고해줘" --model claude-
 
 ---
 
-## 9. 기타 소소한 것들
+## 9. settings.json으로 영구 설정
 
-```bash
-# 백그라운드 불필요한 모델 호출 비활성화
-export DISABLE_NON_ESSENTIAL_MODEL_CALLS=1
+매번 환경변수 export하기 귀찮다면 settings.json에 박아두면 된다.
+
+### 파일 위치
+
+| 범위 | 경로 | 용도 |
+|------|------|------|
+| 개인 전역 | `~/.claude/settings.json` | 모든 프로젝트에 적용 |
+| 프로젝트 공유 | `.claude/settings.json` | git에 커밋, 팀 공유 |
+| 프로젝트 로컬 | `.claude/settings.local.json` | .gitignore 처리, 개인 오버라이드 |
+
+우선순위: 로컬 프로젝트 > 공유 프로젝트 > 개인 전역
+
+### 토큰 절약 관련 설정 예시
+
+```json
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "claude-sonnet-4-5-20250929",
+  "env": {
+    "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1",
+    "MAX_THINKING_TOKENS": "8000",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "70"
+  }
+}
 ```
 
-팁, 제안 등 백그라운드 기능들을 끈다. 소량이지만 쌓인다.
+각 설정의 의미:
+
+**`DISABLE_NON_ESSENTIAL_MODEL_CALLS`**
+팁, 제안 등 백그라운드 모델 호출을 끈다. 소량이지만 쌓인다.
+
+**`MAX_THINKING_TOKENS`**
+Extended thinking 토큰 예산. 기본값 31,999. 복잡한 작업 아니면 줄여도 된다. `0`으로 설정하면 thinking 완전히 비활성화. Opus 4.6 사용 시엔 이 대신 `CLAUDE_CODE_EFFORT_LEVEL` 사용 권장 (`"low"` / `"medium"` / `"high"`).
+
+**`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`**
+자동 압축 발동 기준. 기본값 95(%). 낮출수록 더 일찍 압축한다. 70 정도로 설정하면 컨텍스트가 많이 차기 전에 압축돼서 중요한 맥락이 더 잘 보존된다.
+
+### 팀 프로젝트 공유 설정
+
+`.claude/settings.json`을 git에 커밋하면 팀 전체에 동일한 설정이 적용된다.
+
+```json
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "model": "claude-sonnet-4-5-20250929",
+  "env": {
+    "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1"
+  },
+  "permissions": {
+    "deny": ["Read(./.env)", "Bash(rm -rf *)"]
+  }
+}
+```
+
+`.claude/settings.local.json`은 `.gitignore`에 추가해서 개인 설정 분리.
+
+---
+
+## 10. 기타 소소한 것들
 
 ```bash
-# CI/CD에서 구조화된 출력으로 비용 트래킹
+# CI/CD에서 구조화된 출력으로 토큰 트래킹 (API 키 사용자)
 claude -p "API 엔드포인트 목록 뽑아줘" --output-format json
 ```
 
-`input_tokens`, `output_tokens`, `total_cost` 메타데이터가 같이 나온다. 자동화된 작업 비용 모니터링에 유용.
+`input_tokens`, `output_tokens`, `total_cost` 메타데이터가 같이 나온다. 자동화된 작업 비용 모니터링에 유용하다 (API 키 과금 방식일 때만 의미 있음).
 
 ---
 
@@ -355,6 +417,7 @@ claude -p "API 엔드포인트 목록 뽑아줘" --output-format json
 | 파일 경로 명시 프롬프트 | ★★★☆☆ |
 | 훅으로 출력 전처리 | ★★★★☆ (자동화 환경) |
 | 경로별 규칙 분리 | ★★☆☆☆ |
+| settings.json `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` 설정 | ★★☆☆☆ |
 | `DISABLE_NON_ESSENTIAL_MODEL_CALLS` | ★☆☆☆☆ |
 
 ---
