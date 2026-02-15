@@ -320,8 +320,30 @@ validateEmail 함수 만들어줘.
 | 파일 읽기, 탐색, 단순 질문 | Haiku |
 | 대부분의 코딩 작업 | Sonnet |
 | 복잡한 아키텍처 설계, 어려운 버그 | Opus |
+| 설계는 Opus, 구현은 Sonnet (하이브리드) | **opusplan** |
 
 `/model`로 세션 중에도 전환 가능. Haiku는 Opus 대비 최대 5배 저렴하다.
+
+### opusplan — 플래닝 Opus, 실행 Sonnet
+
+`opusplan`은 Claude Code가 공식 지원하는 하이브리드 모델 앨리어스다.
+
+- **Plan mode 진입 시**: Claude Opus 4.6 사용 → 아키텍처 결정, 복잡한 분석, 설계
+- **코드 실행 시**: Claude Sonnet으로 자동 전환 → 파일 수정, 명령어 실행
+
+Opus의 추론 품질은 유지하면서 구현 단계에서 Sonnet 비용으로 내려온다. 순수 Opus 대비 약 60% 비용 절감 효과.
+
+```
+# 세션 중 전환
+/model opusplan
+
+# 시작부터 설정
+claude --model opusplan
+```
+
+복잡한 작업 구조: `Shift+Tab`으로 plan mode 진입 → Opus가 설계 → plan mode 해제 → Sonnet이 구현.
+
+단순한 작업에는 오버킬이다. 아키텍처 결정이나 어려운 버그 분석이 포함된 세션에서 가치가 있다.
 
 CI/CD 파이프라인이나 스크립트에서 Claude Code 쓴다면:
 
@@ -350,7 +372,7 @@ claude -p "테스트 실행하고 실패한 것만 보고해줘" --model claude-
 ```json
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "model": "claude-sonnet-4-5-20250929",
+  "model": "opusplan",
   "env": {
     "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1",
     "MAX_THINKING_TOKENS": "8000",
@@ -377,7 +399,7 @@ Extended thinking 토큰 예산. 기본값 31,999. 복잡한 작업 아니면 �
 ```json
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "model": "claude-sonnet-4-5-20250929",
+  "model": "opusplan",
   "env": {
     "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1"
   },
