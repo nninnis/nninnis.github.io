@@ -1,0 +1,1927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WOWLIKE PROTO v0.1 - Combat Test</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+    :root {
+      --green: #39ff14;
+      --green-dim: #1a7a08;
+      --green-dark: #0d3d04;
+      --amber: #ffb000;
+      --red: #ff3333;
+      --blue: #33aaff;
+      --purple: #cc44ff;
+      --gold: #ffd700;
+      --bg: #050a05;
+      --panel: #080f08;
+      --border: #1a4a1a;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--green);
+      font-family: 'Share Tech Mono', 'Courier New', monospace;
+      font-size: 13px;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* CRT effect */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.5) 100%);
+      pointer-events: none;
+      z-index: 9998;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.04) 2px, rgba(0,0,0,0.04) 4px);
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* HEADER */
+    #header {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 4px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    #header .title { color: var(--amber); font-size: 15px; letter-spacing: 2px; }
+    #header .info { color: var(--green-dim); font-size: 11px; }
+
+    /* MAIN LAYOUT */
+    #main {
+      display: grid;
+      grid-template-columns: 200px 1fr 220px;
+      grid-template-rows: 1fr;
+      flex: 1;
+      min-height: 0;
+      gap: 0;
+    }
+
+    /* SIDE PANELS */
+    .panel {
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .panel-title {
+      color: var(--amber);
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--border);
+      font-size: 11px;
+      letter-spacing: 1px;
+      flex-shrink: 0;
+    }
+
+    /* DUNGEON MAP */
+    #map-panel { border-right: 1px solid var(--border); }
+    #dungeon-map {
+      padding: 8px;
+      flex: 1;
+    }
+    .sector-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+      gap: 4px;
+      font-size: 11px;
+    }
+    .sector-box {
+      width: 36px; height: 28px;
+      border: 1px solid var(--green-dim);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      cursor: default;
+    }
+    .sector-box.current { border-color: var(--amber); color: var(--amber); background: rgba(255,176,0,0.1); animation: pulse 1s infinite; }
+    .sector-box.completed { border-color: var(--green-dim); color: var(--green-dim); }
+    .sector-box.locked { border-color: #222; color: #333; }
+    .sector-box.boss { border-color: var(--red); color: var(--red); }
+    .sector-box.boss.current { border-color: var(--red); color: var(--red); background: rgba(255,51,51,0.1); }
+    .sector-arrow { color: var(--green-dim); }
+
+    #player-info { padding: 8px; border-top: 1px solid var(--border); font-size: 11px; }
+    .stat-line { display: flex; justify-content: space-between; margin-bottom: 3px; }
+    .stat-label { color: var(--green-dim); }
+    .stat-value { color: var(--green); }
+    .stat-value.amber { color: var(--amber); }
+
+    /* COMBAT AREA */
+    #combat-area {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #battle-scene {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 10px;
+      min-height: 0;
+    }
+
+    #scene-canvas {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Share Tech Mono', 'Courier New', monospace;
+    }
+
+    .battle-layout {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    .battle-char {
+      text-align: center;
+      min-width: 140px;
+    }
+
+    .char-name {
+      font-size: 11px;
+      letter-spacing: 1px;
+      margin-bottom: 3px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .char-hp-mini {
+      font-size: 10px;
+      margin-bottom: 5px;
+      letter-spacing: 0;
+    }
+
+    .char-art {
+      font-size: 15px;
+      line-height: 1.45;
+      white-space: pre;
+      display: inline-block;
+      text-align: left;
+    }
+
+    .char-status {
+      font-size: 11px;
+      margin-top: 4px;
+      animation: pulse 0.5s infinite;
+    }
+
+    .battle-vs {
+      text-align: center;
+      font-size: 13px;
+      line-height: 1.8;
+      white-space: pre;
+      min-width: 70px;
+      padding: 0 4px;
+    }
+
+    .idle-scene {
+      white-space: pre;
+      font-size: 13px;
+      line-height: 1.6;
+      text-align: center;
+      color: var(--green);
+    }
+
+    .phase-badge {
+      font-size: 10px;
+      margin-bottom: 3px;
+      letter-spacing: 1px;
+    }
+
+    /* floating damage numbers */
+    .dmg-float {
+      position: absolute;
+      font-size: 18px;
+      font-weight: bold;
+      pointer-events: none;
+      animation: floatUp 1.2s ease-out forwards;
+      z-index: 100;
+    }
+    .dmg-float.player-dmg { color: var(--green); }
+    .dmg-float.enemy-dmg { color: var(--red); }
+    .dmg-float.crit { color: var(--gold); font-size: 22px; }
+    .dmg-float.heal { color: #44ff88; }
+    .dmg-float.resource { color: var(--amber); }
+
+    @keyframes floatUp {
+      0%   { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-60px); }
+    }
+
+    /* STATUS BARS */
+    #status-bars {
+      padding: 8px 12px;
+      border-top: 1px solid var(--border);
+      background: var(--panel);
+      flex-shrink: 0;
+    }
+
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+    .bar-label { width: 50px; font-size: 11px; color: var(--green-dim); }
+    .bar-track { flex: 1; height: 14px; background: #111; border: 1px solid var(--border); position: relative; overflow: hidden; }
+    .bar-fill { height: 100%; transition: width 0.3s ease; position: relative; }
+    .bar-fill.hp { background: linear-gradient(90deg, #116611, #22aa22); }
+    .bar-fill.hp.low { background: linear-gradient(90deg, #661111, #aa2222); }
+    .bar-fill.resource { background: linear-gradient(90deg, #664400, #cc8800); }
+    .bar-fill.enemy-hp { background: linear-gradient(90deg, #661111, #cc2222); }
+    .bar-fill.cast-bar { background: linear-gradient(90deg, #330066, #9933ff); }
+    .bar-text {
+      position: absolute;
+      right: 4px; top: 0; bottom: 0;
+      display: flex; align-items: center;
+      font-size: 10px; color: rgba(255,255,255,0.7);
+    }
+    .bar-val { width: 80px; font-size: 11px; text-align: right; }
+
+    /* ENEMY CAST BAR */
+    #cast-bar-row { display: none; }
+    #cast-bar-row.visible { display: flex; }
+    #cast-bar-name { color: var(--red); }
+
+    /* SKILL BAR */
+    #skill-bar {
+      padding: 8px 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      background: #060c06;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    .skill-btn {
+      position: relative;
+      width: 56px; height: 56px;
+      background: var(--panel);
+      border: 1px solid var(--green-dim);
+      color: var(--green);
+      font-family: inherit;
+      font-size: 9px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      transition: all 0.1s;
+      text-align: center;
+      padding: 2px;
+      line-height: 1.1;
+    }
+    .skill-btn:hover:not(:disabled) { border-color: var(--green); background: var(--green-dark); }
+    .skill-btn:active:not(:disabled) { transform: scale(0.95); }
+    .skill-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .skill-btn.on-cooldown { border-color: #333; }
+    .skill-btn.can-use { border-color: var(--amber); box-shadow: 0 0 6px rgba(255,176,0,0.3); }
+    .skill-btn.ultimate { border-color: var(--purple); }
+    .skill-btn.ultimate.can-use { box-shadow: 0 0 10px rgba(204,68,255,0.4); }
+    .skill-btn.auto-btn { border-color: var(--blue); }
+
+    .auto-toggle {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 14px;
+      height: 10px;
+      font-size: 7px;
+      background: rgba(0,0,0,0.7);
+      border: 1px solid #333;
+      color: #444;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 10;
+    }
+    .auto-toggle:hover { border-color: var(--green-dim); color: var(--green-dim); }
+    .auto-toggle.active {
+      border-color: var(--amber);
+      color: var(--amber);
+      background: rgba(255,176,0,0.2);
+    }
+    .skill-btn.auto-active { box-shadow: 0 0 8px rgba(255,176,0,0.6) !important; }
+
+    .skill-icon { font-size: 18px; line-height: 1; }
+    .skill-name { font-size: 8px; color: var(--green-dim); }
+    .skill-cost { font-size: 8px; color: var(--amber); }
+
+    .cd-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      color: var(--green);
+      pointer-events: none;
+    }
+
+    /* auto-attack indicator */
+    .auto-progress {
+      position: absolute;
+      bottom: 0; left: 0;
+      height: 3px;
+      background: var(--blue);
+      transition: width 0.1s linear;
+    }
+
+    /* COMBAT LOG */
+    #log-panel { border-left: 1px solid var(--border); border-right: none; }
+    #combat-log {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px 8px;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+    #combat-log::-webkit-scrollbar { width: 4px; }
+    #combat-log::-webkit-scrollbar-track { background: var(--bg); }
+    #combat-log::-webkit-scrollbar-thumb { background: var(--green-dim); }
+
+    .log-entry { margin-bottom: 1px; }
+    .log-entry.player-action { color: var(--green); }
+    .log-entry.enemy-action { color: #ff6666; }
+    .log-entry.system { color: var(--amber); }
+    .log-entry.loot { color: var(--gold); }
+    .log-entry.phase { color: var(--purple); font-weight: bold; }
+    .log-entry.crit { color: var(--gold); }
+    .log-entry.buff { color: #44ff88; }
+    .log-entry.warn { color: #ff9900; }
+    .log-entry.dim { color: var(--green-dim); }
+
+    /* BOTTOM STATUS */
+    #bottom-status {
+      border-top: 1px solid var(--border);
+      background: var(--panel);
+      padding: 3px 12px;
+      font-size: 10px;
+      color: var(--green-dim);
+      display: flex;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    /* OVERLAY */
+    #overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      display: none;
+    }
+    #overlay.visible { display: flex; }
+    #overlay-box {
+      border: 1px solid var(--amber);
+      background: var(--panel);
+      padding: 24px 32px;
+      text-align: center;
+      min-width: 320px;
+    }
+    #overlay-title { color: var(--amber); font-size: 18px; margin-bottom: 12px; letter-spacing: 2px; }
+    #overlay-body { color: var(--green); font-size: 12px; line-height: 1.8; margin-bottom: 16px; }
+    #overlay-btn {
+      background: var(--green-dark);
+      border: 1px solid var(--green);
+      color: var(--green);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 8px 24px;
+      cursor: pointer;
+      letter-spacing: 1px;
+    }
+    #overlay-btn:hover { background: var(--green); color: var(--bg); }
+
+    /* BUFFS DISPLAY */
+    #buffs-bar {
+      padding: 4px 12px;
+      display: flex;
+      gap: 4px;
+      min-height: 28px;
+      flex-shrink: 0;
+      border-top: 1px solid var(--border);
+    }
+    .buff-icon {
+      border: 1px solid var(--green-dim);
+      padding: 2px 6px;
+      font-size: 10px;
+      color: #44ff88;
+    }
+    .debuff-icon {
+      border: 1px solid var(--red);
+      padding: 2px 6px;
+      font-size: 10px;
+      color: var(--red);
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      75% { transform: translateX(4px); }
+    }
+
+    .shake { animation: shake 0.3s ease; }
+  </style>
+</head>
+<body>
+
+<div id="header">
+  <span class="title">⚔ WOWLIKE PROTO v0.1 ⚔</span>
+  <span class="info" id="header-info">DUNGEON: THE SHADOW CRYPT  |  WARRIOR LV.1</span>
+</div>
+
+<div id="main">
+  <!-- LEFT: MAP + PLAYER STATS -->
+  <div class="panel" id="map-panel">
+    <div class="panel-title">▸ DUNGEON MAP</div>
+    <div id="dungeon-map"></div>
+    <div id="player-info">
+      <div class="panel-title">▸ WARRIOR</div>
+      <div class="stat-line"><span class="stat-label">LV</span><span class="stat-value amber" id="stat-lv">1</span></div>
+      <div class="stat-line"><span class="stat-label">ATK</span><span class="stat-value" id="stat-atk">-</span></div>
+      <div class="stat-line"><span class="stat-label">DEF</span><span class="stat-value" id="stat-def">-</span></div>
+      <div class="stat-line"><span class="stat-label">SPD</span><span class="stat-value" id="stat-spd">-</span></div>
+      <div class="stat-line"><span class="stat-label">KILLS</span><span class="stat-value" id="stat-kills">0</span></div>
+      <div class="stat-line"><span class="stat-label">GOLD</span><span class="stat-value amber" id="stat-gold">0</span></div>
+      <div class="stat-line"><span class="stat-label">DIFF</span><span class="stat-value" id="stat-diff">-</span></div>
+    </div>
+  </div>
+
+  <!-- CENTER: COMBAT -->
+  <div id="combat-area">
+    <!-- ENEMY HP -->
+    <div id="status-bars">
+      <div class="bar-row" id="enemy-bar-row" style="display:none">
+        <span class="bar-label" id="enemy-name-label" style="width:90px;font-size:10px">ENEMY</span>
+        <div class="bar-track" style="flex:1">
+          <div class="bar-fill enemy-hp" id="enemy-hp-bar" style="width:100%"></div>
+          <div class="bar-text" id="enemy-hp-text">100/100</div>
+        </div>
+      </div>
+      <!-- CAST BAR -->
+      <div class="bar-row" id="cast-bar-row">
+        <span class="bar-label" style="width:90px;font-size:10px;color:var(--red)" id="cast-bar-name">CASTING...</span>
+        <div class="bar-track" style="flex:1">
+          <div class="bar-fill cast-bar" id="cast-bar-fill" style="width:0%"></div>
+          <div class="bar-text" id="cast-bar-text">0.0s</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="battle-scene">
+      <div id="scene-canvas"></div>
+    </div>
+
+    <!-- BUFFS -->
+    <div id="buffs-bar"></div>
+
+    <!-- PLAYER BARS -->
+    <div id="status-bars" style="padding:8px 12px;border-top:1px solid var(--border);background:var(--panel)">
+      <div class="bar-row">
+        <span class="bar-label">HP</span>
+        <div class="bar-track">
+          <div class="bar-fill hp" id="player-hp-bar" style="width:100%"></div>
+          <div class="bar-text" id="player-hp-text">250/250</div>
+        </div>
+        <span class="bar-val" id="player-hp-val">250/250</span>
+      </div>
+      <div class="bar-row">
+        <span class="bar-label" style="color:var(--amber)">RAGE</span>
+        <div class="bar-track">
+          <div class="bar-fill resource" id="player-res-bar" style="width:0%"></div>
+          <div class="bar-text" id="player-res-text">0/100</div>
+        </div>
+        <span class="bar-val amber" id="player-res-val" style="color:var(--amber)">0/100</span>
+      </div>
+    </div>
+
+    <!-- SKILL BAR -->
+    <div id="skill-bar"></div>
+
+    <div id="bottom-status">
+      <span id="combat-state-txt">[ IDLE - ENTER DUNGEON TO BEGIN ]</span>
+      <span id="fps-counter"></span>
+    </div>
+  </div>
+
+  <!-- RIGHT: COMBAT LOG -->
+  <div class="panel" id="log-panel">
+    <div class="panel-title">▸ COMBAT LOG</div>
+    <div id="combat-log"></div>
+  </div>
+</div>
+
+<!-- OVERLAY -->
+<div id="overlay">
+  <div id="overlay-box">
+    <div id="overlay-title">TITLE</div>
+    <div id="overlay-body">BODY</div>
+    <button id="overlay-btn" onclick="overlayAction()">CONTINUE</button>
+  </div>
+</div>
+
+<script>
+  // ============================================================
+  // GAME DATA
+  // ============================================================
+
+  const CLASSES = {
+    warrior: {
+      name: 'WARRIOR',
+      resource: 'RAGE',
+      maxResource: 100,
+      baseHp: 350,
+      baseAtk: 42,
+      baseDef: 15,
+      baseSpd: 1.8,
+      resourceOnHit: 20,
+      resourceOnTaken: 10,
+      char: '@',
+      color: '#c69b3a'
+    }
+  };
+
+  // ============================================================
+  // DIFFICULTY SETTINGS
+  // ============================================================
+
+  const DIFFICULTIES = {
+    normal:    { label: 'NORMAL',    color: '#39ff14', hpMult: 1.0, atkMult: 1.0,  defMult: 1.0,
+                 desc: 'Normal difficulty — relaxed pace' },
+    hard:      { label: 'HARD',      color: '#ffb000', hpMult: 1.4, atkMult: 1.25, defMult: 1.2,
+                 desc: 'Stronger enemies — use your skills' },
+    nightmare: { label: 'NIGHTMARE', color: '#ff6633', hpMult: 1.8, atkMult: 1.55, defMult: 1.35,
+                 desc: 'Skill rotation required — for veterans' },
+    hell:      { label: 'HELL',      color: '#ff3333', hpMult: 2.0, atkMult: 1.8,  defMult: 1.5,
+                 desc: 'Ultimate challenge — perfect play required' }
+  };
+
+  // ============================================================
+  // CHARACTER SPRITES
+  // ============================================================
+
+  const SPRITES = {
+    player: {
+      art: [
+        ' \\O/ ',
+        '─[|]─',
+        ' / \\ ',
+      ],
+      color: '#ffcc44',
+      borderColor: '#c69b3a'
+    },
+    goblin: {
+      art: [
+        '/^ ^\\',
+        '( g )',
+        ' \\|/ ',
+        ' /|\\ ',
+      ],
+      color: '#44ee44',
+      borderColor: '#228822'
+    },
+    zombie: {
+      art: [
+        ' ~O~ ',
+        '~[z]~',
+        ' ~|  ',
+        '/~\\~ ',
+      ],
+      color: '#88cc77',
+      borderColor: '#446644'
+    },
+    orc: {
+      art: [
+        ' ,O, ',
+        '[|o|]',
+        ' ─┼─ ',
+        ' d d ',
+      ],
+      color: '#aadd33',
+      borderColor: '#668822'
+    },
+    skeleton: {
+      art: [
+        ' .-. ',
+        '/|s|\\',
+        ' ||| ',
+        ' | | ',
+      ],
+      color: '#dddddd',
+      borderColor: '#888888'
+    },
+    shade: {
+      art: [
+        '≈≈≈≈≈',
+        '≈ S ≈',
+        '≈≈|≈≈',
+        ' ≈|≈ ',
+      ],
+      color: '#cc55ff',
+      borderColor: '#771199'
+    },
+    elite_warrior: {
+      art: [
+        '╔═G═╗',
+        '║   ║',
+        '╚═══╝',
+        ' | | ',
+      ],
+      color: '#ffaa22',
+      borderColor: '#cc6600'
+    },
+    necro: {
+      art: [
+        ' /|\\ ',
+        '(|N|)',
+        ' \\×/ ',
+        ' |×| ',
+      ],
+      color: '#dd44ff',
+      borderColor: '#881199'
+    },
+    lich: {
+      art: [
+        '☠─L─☠',
+        ' ╔═╗ ',
+        ' ╠╬╠ ',
+        ' ╚═╝ ',
+        ' /|\\ ',
+      ],
+      color: '#ff5500',
+      borderColor: '#cc2200'
+    }
+  };
+
+  const SKILLS = {
+    auto_attack: {
+      id: 'auto_attack',
+      name: 'STRIKE',
+      icon: '⚔',
+      cost: 0,
+      type: 'auto',
+      cooldown: 0,
+      damageMulti: 1.0,
+      description: 'Basic attack. Generates 20 RAGE.',
+      autoInterval: 1800,
+      genResource: 20
+    },
+    heroic_strike: {
+      id: 'heroic_strike',
+      name: 'HEROIC\nSTRIKE',
+      icon: '💥',
+      cost: 60,
+      type: 'finisher',
+      cooldown: 0,
+      damageMulti: 2.2,
+      description: 'Spend 60 RAGE. Deal 220% damage.',
+      genResource: 0
+    },
+    battle_shout: {
+      id: 'battle_shout',
+      name: 'BATTLE\nSHOUT',
+      icon: '📢',
+      cost: 0,
+      type: 'buff',
+      cooldown: 15000,
+      duration: 10000,
+      buffKey: 'battle_shout',
+      buffLabel: 'SHOUT',
+      atkBonus: 0.25,
+      description: 'Increase ATK by 25% for 10s.',
+      genResource: 0
+    },
+    whirlwind: {
+      id: 'whirlwind',
+      name: 'WHIRL\nWIND',
+      icon: '🌀',
+      cost: 0,
+      type: 'damage',
+      cooldown: 8000,
+      damageMulti: 1.4,
+      hitAll: true,
+      description: 'Strike all enemies for 140% damage.',
+      genResource: 10
+    },
+    shield_slam: {
+      id: 'shield_slam',
+      name: 'SHIELD\nSLAM',
+      icon: '🛡',
+      cost: 0,
+      type: 'damage_stun',
+      cooldown: 12000,
+      damageMulti: 1.2,
+      stunDuration: 2000,
+      description: 'Deal 120% damage. Stun for 2s.',
+      genResource: 15
+    },
+    charge: {
+      id: 'charge',
+      name: 'CHARGE',
+      icon: '⚡',
+      cost: 0,
+      type: 'dash_resource',
+      cooldown: 20000,
+      damageMulti: 0.8,
+      genResourceBonus: 30,
+      description: 'Charge enemy. Generate 30 RAGE.',
+      genResource: 30
+    },
+    bladestorm: {
+      id: 'bladestorm',
+      name: 'BLADE\nSTORM',
+      icon: '🌪',
+      cost: 0,
+      type: 'ultimate',
+      cooldown: 60000,
+      hits: 5,
+      damageMulti: 0.9,
+      description: '5 rapid strikes, each 90% damage.',
+      genResource: 0
+    }
+  };
+
+  const DUNGEON = {
+    name: 'THE SHADOW CRYPT',
+    sectors: [
+      {
+        id: 'S1', label: 'S1', name: 'CRYPT ENTRANCE',
+        enemies: [
+          { id: 'goblin', name: 'GOBLIN SCOUT', char: 'g', color:'#44aa44', hp: 80, atk: 12, def: 3, exp: 15, gold: [3,8],
+            patterns: ['basic','basic','basic'], attackInterval: 2200 },
+          { id: 'zombie', name: 'ROTTING ZOMBIE', char: 'z', color:'#668866', hp: 110, atk: 18, def: 5, exp: 20, gold: [4,10],
+            patterns: ['basic','basic','slow_heavy'], attackInterval: 2800 }
+        ]
+      },
+      {
+        id: 'S2', label: 'S2', name: 'CRYPT HALL',
+        enemies: [
+          { id: 'orc', name: 'ORC GRUNT', char: 'o', color:'#88aa44', hp: 140, atk: 22, def: 8, exp: 30, gold: [6,14],
+            patterns: ['basic','basic','enrage_strike'], attackInterval: 2000 },
+          { id: 'skeleton', name: 'SKELETON ARCHER', char: 's', color:'#aaaaaa', hp: 100, atk: 28, def: 4, exp: 28, gold: [5,12],
+            patterns: ['basic','aimed_shot','basic'], attackInterval: 2500 },
+          { id: 'shade', name: 'SHADOW SHADE', char: 'S', color:'#6644aa', hp: 90, atk: 20, def: 6, exp: 25, gold: [5,11],
+            patterns: ['basic','basic','shadow_bolt'], attackInterval: 2400 }
+        ]
+      },
+      {
+        id: 'S3', label: 'S3', name: 'INNER SANCTUM',
+        enemies: [
+          { id: 'elite_warrior', name: 'CRYPT GUARDIAN', char: 'G', color:'#cc8800', hp: 220, atk: 32, def: 14, exp: 55, gold: [12,22],
+            patterns: ['basic','power_strike','basic','shield_bash'], attackInterval: 2200 },
+          { id: 'necro', name: 'NECROMANCER', char: 'N', color:'#aa44cc', hp: 160, atk: 38, def: 8, exp: 60, gold: [14,24],
+            patterns: ['basic','basic','summon_warn','death_bolt'], attackInterval: 2600, isCaster: true }
+        ]
+      },
+      {
+        id: 'BOSS', label: 'BOSS', name: 'THE LICH KING',
+        isBoss: true,
+        enemies: [
+          {
+            id: 'lich', name: 'LICH KING MALGRATH', char: 'L', color:'#ff6600', hp: 900, atk: 45, def: 18, exp: 200, gold: [40,80],
+            isBoss: true,
+            phases: [
+              { threshold: 1.0, name: 'PHASE 1', patterns: ['basic','basic','necrotic_bolt'], attackInterval: 2500 },
+              { threshold: 0.6, name: 'PHASE 2', patterns: ['basic','necrotic_bolt','summon_undead'], attackInterval: 2200 },
+              { threshold: 0.3, name: 'PHASE 3 - ENRAGED', patterns: ['necrotic_bolt','death_nova','basic'], attackInterval: 1800 }
+            ],
+            currentPhase: 0,
+            attackInterval: 2500
+          }
+        ]
+      }
+    ]
+  };
+
+  // ============================================================
+  // GAME STATE
+  // ============================================================
+
+  const G = {
+    player: {
+      hp: 350, maxHp: 350,
+      resource: 0, maxResource: 100,
+      level: 1, exp: 0, expNext: 100,
+      atk: 42, def: 15, spd: 1.8,
+      kills: 0, gold: 0,
+      buffs: {},
+      debuffs: {},
+      stunUntil: 0
+    },
+    dungeon: {
+      active: false,
+      currentSectorIdx: 0,
+      currentEnemyIdx: 0,
+      sectorComplete: [false, false, false, false],
+    },
+    combat: {
+      inCombat: false,
+      enemy: null,
+      playerAutoTimer: 0,
+      enemyAttackTimer: 0,
+      enemyCastTimer: 0,
+      enemyCasting: null,
+      enemyStunnedUntil: 0,
+      skillCooldowns: {},
+      autoProgress: 0,
+      attackAnim: ''
+    },
+    difficulty: null,
+    overlayCallback: null,
+    autoSkills: new Set()
+  };
+
+  let autoSkillNextTime = 0;
+
+  // ============================================================
+  // UTILITY
+  // ============================================================
+
+  function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+  function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+  function pct(v, max) { return clamp((v / max) * 100, 0, 100); }
+  function now() { return performance.now(); }
+
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  let lastTs = 0;
+
+  // ============================================================
+  // COMBAT LOG
+  // ============================================================
+
+  const log = (() => {
+    const el = document.getElementById('combat-log');
+    const MAX = 200;
+    let entries = [];
+
+    function add(text, type='dim') {
+      entries.push({ text, type });
+      if (entries.length > MAX) entries.shift();
+      const div = document.createElement('div');
+      div.className = `log-entry ${type}`;
+      div.textContent = text;
+      el.appendChild(div);
+      while (el.children.length > MAX) el.removeChild(el.firstChild);
+      el.scrollTop = el.scrollHeight;
+    }
+
+    return { add };
+  })();
+
+  // ============================================================
+  // FLOATING DAMAGE NUMBERS
+  // ============================================================
+
+  function spawnFloat(text, type, x, y) {
+    const el = document.createElement('div');
+    el.className = `dmg-float ${type}`;
+    el.textContent = text;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    document.getElementById('battle-scene').appendChild(el);
+    setTimeout(() => el.remove(), 1200);
+  }
+
+  function floatNearPlayer(text, type) {
+    const scene = document.getElementById('battle-scene');
+    const r = scene.getBoundingClientRect();
+    spawnFloat(text, type, r.width * 0.22 + rand(-20, 20), r.height * 0.35 + rand(-15, 15));
+  }
+
+  function floatNearEnemy(text, type) {
+    const scene = document.getElementById('battle-scene');
+    const r = scene.getBoundingClientRect();
+    spawnFloat(text, type, r.width * 0.65 + rand(-20, 20), r.height * 0.35 + rand(-15, 15));
+  }
+
+  // ============================================================
+  // SCENE RENDERER
+  // ============================================================
+
+  function makeHpBar(current, max, len) {
+    const filled = Math.round((current / max) * len);
+    const empty = len - filled;
+    const ratio = current / max;
+    const color = ratio < 0.3 ? '#ff3333' : ratio < 0.6 ? '#ffaa00' : '#33ee33';
+    return `<span style="color:${color}">${'█'.repeat(Math.max(0,filled))}${'░'.repeat(Math.max(0,empty))}</span>`;
+  }
+
+  function buildCharBlock(spriteKey, name, hpCurrent, hpMax, isStunned, phaseName, isBoss) {
+    const sp = SPRITES[spriteKey] || SPRITES.shade;
+    const borderStyle = `border:1px solid ${sp.borderColor};padding:6px 10px;display:inline-block;min-width:110px;`;
+
+    let html = `<div class="battle-char" style="color:${sp.color}">`;
+    html += `<div style="${borderStyle}">`;
+
+    if (isBoss && phaseName) {
+      html += `<div class="phase-badge" style="color:#ff9900">[ ${phaseName} ]</div>`;
+    }
+
+    html += `<div class="char-name" style="color:${sp.color}">${escapeHtml(name)}</div>`;
+
+    if (hpMax > 0) {
+      const ratio = hpCurrent / hpMax;
+      const hpColor = ratio < 0.3 ? '#ff3333' : ratio < 0.6 ? '#ffaa00' : '#33ee33';
+      html += `<div class="char-hp-mini" style="color:${hpColor}">${makeHpBar(hpCurrent, hpMax, 10)} ${hpCurrent}/${hpMax}</div>`;
+    }
+
+    html += `<div class="char-art" style="color:${sp.color}">`;
+    for (const line of sp.art) {
+      html += escapeHtml(line) + '\n';
+    }
+    html += `</div>`;
+
+    if (isStunned) {
+      html += `<div class="char-status" style="color:#ffee00">★ STUNNED ★</div>`;
+    }
+
+    html += `</div></div>`;
+    return html;
+  }
+
+  function renderScene() {
+    const canvas = document.getElementById('scene-canvas');
+    const { combat } = G;
+
+    if (!G.dungeon.active) {
+      canvas.innerHTML = `<div class="idle-scene" style="color:var(--green)">` +
+        `╔══════════════════════════════╗\n` +
+        `║  ☠  THE SHADOW CRYPT  ☠      ║\n` +
+        `║                              ║\n` +
+        `║   Danger lurks in the dark   ║\n` +
+        `║                              ║\n` +
+        `║  ┌─S1─┐ ┌─S2─┐ ┌─S3─┐        ║\n` +
+        `║  │    │→│    │→│    │→ ☠     ║\n` +
+        `║  └────┘ └────┘ └────┘  BOSS  ║\n` +
+        `║                              ║\n` +
+        `║  [ PRESS ENTER TO DESCEND ]  ║\n` +
+        `╚══════════════════════════════╝</div>`;
+      return;
+    }
+
+    if (!combat.enemy) {
+      canvas.innerHTML = `<div style="color:var(--amber);font-size:16px;text-align:center;letter-spacing:2px">★ SECTOR CLEAR ★<br><span style="font-size:12px;color:var(--green-dim)">proceeding...</span></div>`;
+      return;
+    }
+
+    const e = combat.enemy;
+    const p = G.player;
+    const t = now();
+
+    const anim = combat.attackAnim;
+    let connectorLines, connColor;
+    if (anim === 'crit') {
+      connectorLines = ['  ★★★  ', ' !!!!!! ', '  ★★★  '];
+      connColor = '#ffd700';
+    } else if (anim === 'player') {
+      connectorLines = ['       ', ' >>>>→ ', '       '];
+      connColor = '#44ff44';
+    } else if (anim === 'enemy') {
+      connectorLines = ['       ', ' ←<<<< ', '       '];
+      connColor = '#ff4444';
+    } else {
+      connectorLines = ['       ', ' · · · ', '       '];
+      connColor = '#1a4a1a';
+    }
+
+    const playerStunned = t < (p.stunUntil || 0);
+    const playerBlock = buildCharBlock('player', '⚔ WARRIOR', p.hp, p.maxHp, playerStunned, null, false);
+
+    const enemyStunned = t < combat.enemyStunnedUntil;
+    const phaseName = e.isBoss && e.phases ? e.phases[e.currentPhase || 0].name : null;
+    const enemyBlock = buildCharBlock(e.id, e.name, e.currentHp, e.maxHp, enemyStunned, phaseName, e.isBoss);
+
+    const connectorHtml = `<div class="battle-vs" style="color:${connColor}">` +
+      connectorLines.map(l => escapeHtml(l)).join('<br>') + `</div>`;
+
+    canvas.innerHTML = `<div class="battle-layout">${playerBlock}${connectorHtml}${enemyBlock}</div>`;
+  }
+
+  // ============================================================
+  // DUNGEON MAP
+  // ============================================================
+
+  function renderDungeonMap() {
+    const el = document.getElementById('dungeon-map');
+    const { sectors } = DUNGEON;
+    const { currentSectorIdx, sectorComplete } = G.dungeon;
+
+    let html = '';
+    for (let i = 0; i < sectors.length; i++) {
+      const s = sectors[i];
+      const isCurrent = G.dungeon.active && i === currentSectorIdx;
+      const isComplete = sectorComplete[i];
+      const isBoss = s.isBoss;
+
+      let cls = 'sector-box';
+      if (isBoss) cls += ' boss';
+      if (isCurrent) cls += ' current';
+      else if (isComplete) cls += ' completed';
+      else if (!G.dungeon.active && i > currentSectorIdx) cls += ' locked';
+
+      const symbol = isComplete ? '✓' : (isCurrent ? s.label : (isBoss ? '☠' : s.label));
+
+      html += `<div class="sector-row">`;
+      if (i > 0) html += `<span class="sector-arrow">→</span>`;
+      html += `<div class="${cls}" title="${s.name}">${symbol}</div>`;
+      if (isCurrent) html += `<span style="font-size:9px;color:var(--amber)">${s.name.slice(0,12)}</span>`;
+      html += `</div>`;
+    }
+
+    if (!G.dungeon.active) {
+      html += `<div style="margin-top:12px">`;
+      html += `<button onclick="showDifficultySelect()" style="width:100%;background:var(--green-dark);border:1px solid var(--green);color:var(--green);font-family:inherit;font-size:11px;padding:6px;cursor:pointer;letter-spacing:1px">▶ ENTER DUNGEON</button>`;
+      html += `</div>`;
+    } else {
+      html += `<div style="margin-top:8px;font-size:10px;color:var(--green-dim)">ESC: FLEE</div>`;
+    }
+    el.innerHTML = html;
+  }
+
+  // ============================================================
+  // AUTO SKILL TOGGLE
+  // ============================================================
+
+  function toggleAutoSkill(skillId, ev) {
+    ev.stopPropagation();
+    const skillName = SKILLS[skillId].name.replace(/\n/g, ' ');
+    if (G.autoSkills.has(skillId)) {
+      G.autoSkills.delete(skillId);
+      log.add(`Auto-use OFF: ${skillName}`, 'dim');
+    } else {
+      G.autoSkills.add(skillId);
+      log.add(`Auto-use ON: ${skillName}`, 'buff');
+    }
+  }
+
+  function toggleAllAutoSkills() {
+    const skillIds = SKILL_ORDER.filter(sid => SKILLS[sid].type !== 'auto');
+    const allOn = skillIds.every(sid => G.autoSkills.has(sid));
+    if (allOn) {
+      skillIds.forEach(sid => G.autoSkills.delete(sid));
+      log.add('Auto-use: ALL OFF', 'dim');
+    } else {
+      skillIds.forEach(sid => G.autoSkills.add(sid));
+      log.add('Auto-use: ALL ON', 'buff');
+    }
+  }
+
+  function autoSkillTick() {
+    if (!G.dungeon.active || !G.combat.inCombat || !G.combat.enemy) return;
+    const t = now();
+    if (t < (G.player.stunUntil || 0)) return;
+    if (t < autoSkillNextTime) return;
+
+    for (const sid of SKILL_ORDER) {
+      if (sid === 'auto_attack') continue;
+      if (!G.autoSkills.has(sid)) continue;
+      const sk = SKILLS[sid];
+      if ((G.combat.skillCooldowns[sid] || 0) > t) continue;
+      if (sk.cost > 0 && G.player.resource < sk.cost) continue;
+      useSkill(sid);
+      autoSkillNextTime = t + 250;
+      break;
+    }
+  }
+
+  // ============================================================
+  // SKILL BAR
+  // ============================================================
+
+  const SKILL_ORDER = ['auto_attack', 'heroic_strike', 'battle_shout', 'whirlwind', 'shield_slam', 'charge', 'bladestorm'];
+
+  function renderSkillBar() {
+    const el = document.getElementById('skill-bar');
+    const { skillCooldowns } = G.combat;
+    const p = G.player;
+    const t = now();
+
+    let html = '';
+    for (const sid of SKILL_ORDER) {
+      const sk = SKILLS[sid];
+      const cdRemain = Math.max(0, (skillCooldowns[sid] || 0) - t);
+      const onCD = cdRemain > 0;
+      const canAfford = p.resource >= sk.cost;
+      const canUse = G.dungeon.active && G.combat.inCombat && !onCD && (sk.cost === 0 || canAfford);
+
+      const isAutoActive = G.autoSkills.has(sid);
+
+      let btnClass = 'skill-btn';
+      if (sk.type === 'ultimate') btnClass += ' ultimate';
+      if (sk.type === 'auto') btnClass += ' auto-btn';
+      if (canUse && sk.type !== 'auto') btnClass += ' can-use';
+      if (onCD) btnClass += ' on-cooldown';
+      if (isAutoActive) btnClass += ' auto-active';
+
+      const cdSec = (cdRemain / 1000).toFixed(1);
+      let costDisplay = sk.cost > 0 ? `${sk.cost}☰` : '';
+      if (sk.type === 'auto') costDisplay = 'AUTO';
+
+      html += `<button class="${btnClass}" onclick="useSkill('${sid}')" title="${sk.description}" ${sk.type==='auto'?'disabled':''}>`;
+      html += `<span class="skill-icon">${sk.icon}</span>`;
+      html += `<span class="skill-name">${sk.name}</span>`;
+      if (costDisplay) html += `<span class="skill-cost">${costDisplay}</span>`;
+      if (onCD) html += `<div class="cd-overlay">${cdSec}</div>`;
+      if (sk.type === 'auto') {
+        html += `<div class="auto-progress" style="width:${G.combat.autoProgress*100}%"></div>`;
+      } else {
+        html += `<div class="auto-toggle${isAutoActive ? ' active' : ''}" onclick="toggleAutoSkill('${sid}',event)" title="Toggle auto-use">A</div>`;
+      }
+      html += `</button>`;
+    }
+
+    const skillIds = SKILL_ORDER.filter(sid => SKILLS[sid].type !== 'auto');
+    const allOn = skillIds.every(sid => G.autoSkills.has(sid));
+    const anyOn = skillIds.some(sid => G.autoSkills.has(sid));
+    const bulkColor = allOn ? 'var(--amber)' : anyOn ? '#888844' : 'var(--green-dim)';
+    const bulkBg = allOn ? 'rgba(255,176,0,0.15)' : 'transparent';
+    const bulkLabel = allOn ? 'ALL\nOFF' : 'ALL\nON';
+    html += `<button onclick="toggleAllAutoSkills()" title="Toggle all skills auto-use ON/OFF"
+      style="margin-left:6px;position:relative;width:44px;height:56px;background:${bulkBg};border:1px solid ${bulkColor};color:${bulkColor};font-family:inherit;font-size:9px;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;letter-spacing:1px;transition:all 0.1s;white-space:pre-line;line-height:1.2;">
+      <span style="font-size:14px;line-height:1">⚙</span>
+      <span>AUTO</span>
+      <span style="font-size:8px">${bulkLabel}</span>
+    </button>`;
+
+    el.innerHTML = html;
+  }
+
+  // ============================================================
+  // STATUS BARS
+  // ============================================================
+
+  function renderStatusBars() {
+    const p = G.player;
+    const { enemy } = G.combat;
+
+    const hpPct = pct(p.hp, p.maxHp);
+    const hpBar = document.getElementById('player-hp-bar');
+    hpBar.style.width = hpPct + '%';
+    hpBar.className = 'bar-fill hp' + (hpPct < 25 ? ' low' : '');
+    document.getElementById('player-hp-text').textContent = `${p.hp}/${p.maxHp}`;
+    document.getElementById('player-hp-val').textContent = `${p.hp}/${p.maxHp}`;
+
+    const resPct = pct(p.resource, p.maxResource);
+    document.getElementById('player-res-bar').style.width = resPct + '%';
+    document.getElementById('player-res-text').textContent = `${p.resource}/${p.maxResource}`;
+    document.getElementById('player-res-val').textContent = `${p.resource}/${p.maxResource}`;
+
+    const enemyBarRow = document.getElementById('enemy-bar-row');
+    if (enemy) {
+      enemyBarRow.style.display = 'flex';
+      document.getElementById('enemy-name-label').textContent = enemy.name.slice(0,14);
+      const ePct = pct(enemy.currentHp, enemy.maxHp);
+      document.getElementById('enemy-hp-bar').style.width = ePct + '%';
+      document.getElementById('enemy-hp-text').textContent = `${enemy.currentHp}/${enemy.maxHp}`;
+    } else {
+      enemyBarRow.style.display = 'none';
+    }
+
+    const castRow = document.getElementById('cast-bar-row');
+    const cast = G.combat.enemyCasting;
+    if (cast) {
+      castRow.className = 'bar-row visible';
+      document.getElementById('cast-bar-name').textContent = '⚠ ' + cast.name;
+      const castPct = pct(cast.duration - cast.remaining, cast.duration);
+      document.getElementById('cast-bar-fill').style.width = castPct + '%';
+      document.getElementById('cast-bar-text').textContent = (cast.remaining/1000).toFixed(1)+'s';
+    } else {
+      castRow.className = 'bar-row';
+    }
+  }
+
+  // ============================================================
+  // BUFFS DISPLAY
+  // ============================================================
+
+  function renderBuffs() {
+    const el = document.getElementById('buffs-bar');
+    const t = now();
+    let html = '';
+    for (const [k, b] of Object.entries(G.player.buffs)) {
+      const remain = Math.max(0, (b.endTime - t) / 1000).toFixed(1);
+      html += `<div class="buff-icon">${b.label} ${remain}s</div>`;
+    }
+    for (const [k, d] of Object.entries(G.player.debuffs)) {
+      const remain = Math.max(0, (d.endTime - t) / 1000).toFixed(1);
+      html += `<div class="debuff-icon">${d.label} ${remain}s</div>`;
+    }
+    el.innerHTML = html;
+  }
+
+  // ============================================================
+  // PLAYER STATS PANEL
+  // ============================================================
+
+  function renderPlayerStats() {
+    const p = G.player;
+    document.getElementById('stat-lv').textContent = p.level;
+    document.getElementById('stat-atk').textContent = getPlayerAtk();
+    document.getElementById('stat-def').textContent = p.def;
+    document.getElementById('stat-spd').textContent = p.spd.toFixed(1);
+    document.getElementById('stat-kills').textContent = p.kills;
+    document.getElementById('stat-gold').textContent = p.gold;
+    const diff = G.difficulty ? DIFFICULTIES[G.difficulty] : null;
+    const diffEl = document.getElementById('stat-diff');
+    if (diffEl) {
+      diffEl.textContent = diff ? diff.label : '-';
+      diffEl.style.color = diff ? diff.color : '';
+    }
+    const diffTag = diff ? `[${diff.label}]  |  ` : '';
+    document.getElementById('header-info').textContent =
+      `DUNGEON: ${DUNGEON.name}  |  ${diffTag}WARRIOR LV.${p.level}  |  EXP: ${p.exp}/${p.expNext}`;
+  }
+
+  // ============================================================
+  // COMBAT CALCULATIONS
+  // ============================================================
+
+  function getPlayerAtk() {
+    let atk = G.player.atk;
+    if (G.player.buffs.battle_shout) atk = Math.floor(atk * 1.25);
+    return atk;
+  }
+
+  function calcPlayerDmg(multi = 1.0) {
+    const base = getPlayerAtk();
+    const variance = rand(-5, 5);
+    return Math.max(1, Math.floor(base * multi + variance));
+  }
+
+  function calcEnemyDmg(enemy, patternName) {
+    let base = enemy.atk;
+    let multi = 1.0;
+    let isCast = false;
+    let label = patternName;
+
+    switch(patternName) {
+      case 'basic':         multi = 1.0; break;
+      case 'slow_heavy':    multi = 1.8; isCast = true; break;
+      case 'power_strike':  multi = 1.6; break;
+      case 'enrage_strike': multi = 2.0; break;
+      case 'aimed_shot':    multi = 1.5; isCast = true; break;
+      case 'shadow_bolt':   multi = 1.4; isCast = true; break;
+      case 'shield_bash':   multi = 0.8; break;
+      case 'summon_warn':   multi = 0; label = '⚠ SUMMONING'; isCast = true; break;
+      case 'death_bolt':    multi = 1.9; isCast = true; break;
+      case 'necrotic_bolt': multi = 1.7; isCast = true; break;
+      case 'summon_undead': multi = 0; label = '⚠ SUMMONING UNDEAD'; isCast = true; break;
+      case 'death_nova':    multi = 2.5; isCast = true; break;
+    }
+
+    const dmg = Math.max(1, Math.floor(base * multi + rand(-3, 3)));
+    const def = G.player.def;
+    const mitigated = Math.max(1, dmg - Math.floor(def * 0.6));
+    return { dmg: mitigated, multi, isCast, label, rawDmg: dmg };
+  }
+
+  // ============================================================
+  // COMBAT ENGINE
+  // ============================================================
+
+  function spawnEnemy(enemyData) {
+    const diff = DIFFICULTIES[G.difficulty] || DIFFICULTIES.normal;
+    const e = Object.assign({}, enemyData);
+    e.hp  = Math.round(e.hp  * diff.hpMult);
+    e.atk = Math.round(e.atk * diff.atkMult);
+    e.def = Math.round(e.def * diff.defMult);
+    e.currentHp = e.hp;
+    e.maxHp = e.hp;
+    e.currentPhase = 0;
+    e.patternIdx = 0;
+    e.patterns = e.isBoss ? e.phases[0].patterns : e.patterns;
+    e.attackInterval = e.isBoss ? e.phases[0].attackInterval : e.attackInterval;
+    G.combat.enemy = e;
+    G.combat.enemyAttackTimer = now() + e.attackInterval;
+    G.combat.enemyCasting = null;
+    G.combat.enemyStunnedUntil = 0;
+    G.combat.inCombat = true;
+    log.add(`▸ ${e.name} appears!`, 'system');
+    if (e.isBoss) {
+      log.add(`⚠ BOSS ENCOUNTER: ${e.name}`, 'phase');
+      log.add(`  Phase 1 begins. Brace yourself.`, 'phase');
+    }
+  }
+
+  function playerAttack(skill, multi) {
+    const e = G.combat.enemy;
+    if (!e || e.currentHp <= 0) return 0;
+
+    const dmg = calcPlayerDmg(multi);
+    const isCrit = Math.random() < 0.1;
+    const finalDmg = isCrit ? Math.floor(dmg * 1.8) : dmg;
+
+    e.currentHp = Math.max(0, e.currentHp - finalDmg);
+
+    if (isCrit) {
+      floatNearEnemy(`CRIT! ${finalDmg}`, 'crit');
+      log.add(`★ CRITICAL HIT! ${skill.name}: ${finalDmg} dmg`, 'crit');
+    } else {
+      floatNearEnemy(`-${finalDmg}`, 'player-dmg');
+      log.add(`⚔ ${skill.name}: ${finalDmg} dmg to ${e.name}`, 'player-action');
+    }
+
+    G.combat.attackAnim = isCrit ? 'crit' : 'player';
+    setTimeout(() => { G.combat.attackAnim = ''; }, 300);
+
+    if (skill.genResource > 0) {
+      gainResource(skill.genResource);
+    }
+
+    if (e.isBoss) checkBossPhase(e);
+
+    if (e.currentHp <= 0) {
+      enemyDied(e);
+      return finalDmg;
+    }
+    return finalDmg;
+  }
+
+  function checkBossPhase(e) {
+    const hpRatio = e.currentHp / e.maxHp;
+    const phases = e.phases;
+    let newPhase = 0;
+    for (let i = phases.length - 1; i >= 0; i--) {
+      if (hpRatio <= phases[i].threshold) { newPhase = i; break; }
+    }
+    if (newPhase !== e.currentPhase) {
+      e.currentPhase = newPhase;
+      e.patterns = phases[newPhase].patterns;
+      e.attackInterval = phases[newPhase].attackInterval;
+      e.patternIdx = 0;
+      G.combat.enemyCasting = null;
+      log.add(`⚡ ${e.name}: ${phases[newPhase].name}!`, 'phase');
+      if (newPhase === 2) log.add(`  THE LICH KING ENRAGES! Speed increased!`, 'phase');
+    }
+  }
+
+  function gainResource(amount) {
+    const p = G.player;
+    const prev = p.resource;
+    p.resource = clamp(p.resource + amount, 0, p.maxResource);
+    const gained = p.resource - prev;
+    if (gained > 0) floatNearPlayer(`+${gained}☰`, 'resource');
+  }
+
+  function spendResource(amount) {
+    G.player.resource = Math.max(0, G.player.resource - amount);
+  }
+
+  function enemyDied(e) {
+    const p = G.player;
+    G.combat.inCombat = false;
+    G.combat.enemyCasting = null;
+
+    log.add(`✓ ${e.name} defeated!`, 'system');
+
+    p.exp += e.exp;
+    log.add(`  +${e.exp} EXP`, 'buff');
+    checkLevelUp();
+
+    const goldGain = rand(e.gold[0], e.gold[1]);
+    p.gold += goldGain;
+    p.kills++;
+    floatNearEnemy(`+${goldGain}g`, 'loot');
+    log.add(`  +${goldGain} GOLD`, 'loot');
+
+    if (Math.random() < 0.3) {
+      const items = ['Rusty Sword','Worn Shield','Shadow Cloak','Bone Helm','Crypt Ring'];
+      const item = items[rand(0, items.length-1)];
+      log.add(`  💎 [${item}] dropped!`, 'loot');
+    }
+
+    G.combat.enemy = null;
+    setTimeout(() => advanceCombat(), 1200);
+  }
+
+  function checkLevelUp() {
+    const p = G.player;
+    if (p.exp >= p.expNext) {
+      p.exp -= p.expNext;
+      p.level++;
+      p.expNext = Math.floor(p.expNext * 1.4);
+      p.maxHp = Math.floor(p.maxHp * 1.12);
+      p.hp = p.maxHp;
+      p.atk = Math.floor(p.atk * 1.08);
+      p.def = Math.floor(p.def * 1.07);
+      log.add(`★ LEVEL UP! Now level ${p.level}!`, 'phase');
+      log.add(`  HP +${Math.floor(p.maxHp*0.12)}  ATK +${Math.floor(p.atk*0.08)}`, 'buff');
+      floatNearPlayer(`LEVEL UP!`, 'crit');
+    }
+  }
+
+  function advanceCombat() {
+    const { dungeon } = G;
+    const sector = DUNGEON.sectors[dungeon.currentSectorIdx];
+
+    dungeon.currentEnemyIdx++;
+
+    if (dungeon.currentEnemyIdx < sector.enemies.length) {
+      log.add(`--- Next enemy approaches ---`, 'dim');
+      spawnEnemy(sector.enemies[dungeon.currentEnemyIdx]);
+    } else {
+      log.add(`★ SECTOR ${sector.id} CLEARED!`, 'system');
+      dungeon.sectorComplete[dungeon.currentSectorIdx] = true;
+
+      if (dungeon.currentSectorIdx < DUNGEON.sectors.length - 1) {
+        dungeon.currentSectorIdx++;
+        dungeon.currentEnemyIdx = 0;
+        const nextSector = DUNGEON.sectors[dungeon.currentSectorIdx];
+        log.add(`▸ Entering: ${nextSector.name}`, 'system');
+        if (nextSector.isBoss) {
+          log.add(`⚠ BOSS ROOM AHEAD. Prepare yourself.`, 'warn');
+        }
+        setTimeout(() => spawnEnemy(nextSector.enemies[0]), 1500);
+      } else {
+        dungeonComplete();
+      }
+    }
+  }
+
+  // ============================================================
+  // ENEMY AI
+  // ============================================================
+
+  function enemyTick(dt) {
+    const { combat } = G;
+    const e = combat.enemy;
+    if (!e || e.currentHp <= 0) return;
+    if (!combat.inCombat) return;
+
+    const t = now();
+
+    if (combat.enemyCasting) {
+      combat.enemyCasting.remaining -= dt;
+      if (combat.enemyCasting.remaining <= 0) {
+        const cast = combat.enemyCasting;
+        combat.enemyCasting = null;
+        executeCastedAbility(e, cast);
+      }
+      return;
+    }
+
+    if (t < combat.enemyStunnedUntil) return;
+
+    if (t >= combat.enemyAttackTimer) {
+      combat.enemyAttackTimer = t + e.attackInterval;
+      doEnemyAction(e);
+    }
+  }
+
+  function doEnemyAction(e) {
+    const pattern = e.patterns[e.patternIdx % e.patterns.length];
+    e.patternIdx++;
+
+    const { dmg, multi, isCast, label, rawDmg } = calcEnemyDmg(e, pattern);
+
+    if (isCast && multi > 0) {
+      const castTime = 2000 + rand(0, 500);
+      log.add(`⚠ ${e.name} begins casting ${label}!`, 'warn');
+      G.combat.enemyCasting = {
+        name: label,
+        duration: castTime,
+        remaining: castTime,
+        dmg: dmg,
+        pattern: pattern
+      };
+    } else if (multi === 0) {
+      log.add(`⚠ ${e.name}: ${label}!`, 'warn');
+    } else {
+      applyEnemyDmg(e, dmg, pattern, label);
+    }
+  }
+
+  function executeCastedAbility(e, cast) {
+    if (cast.pattern === 'shield_bash') {
+      G.combat.enemyStunnedUntil = 0;
+      G.player.stunUntil = now() + 2000;
+      log.add(`⚡ ${e.name} SHIELD BASH! You are stunned for 2s!`, 'enemy-action');
+      floatNearPlayer('STUNNED!', 'enemy-dmg');
+    } else if (['summon_warn','summon_undead'].includes(cast.pattern)) {
+      log.add(`💀 ${e.name} summons undead! They are destroyed... for now.`, 'warn');
+    } else {
+      applyEnemyDmg(e, cast.dmg, cast.pattern, cast.name);
+    }
+  }
+
+  function applyEnemyDmg(e, dmg, pattern, label) {
+    const p = G.player;
+
+    if (now() < (p.stunUntil || 0)) {
+      dmg = Math.floor(dmg * 1.2);
+    }
+
+    p.hp = Math.max(0, p.hp - dmg);
+    floatNearPlayer(`-${dmg}`, 'enemy-dmg');
+    log.add(`▹ ${e.name} attacks you for ${dmg} dmg! (${label})`, 'enemy-action');
+
+    gainResource(10);
+
+    const scene = document.getElementById('battle-scene');
+    scene.classList.add('shake');
+    setTimeout(() => scene.classList.remove('shake'), 300);
+
+    G.combat.attackAnim = 'enemy';
+    setTimeout(() => { G.combat.attackAnim = ''; }, 300);
+
+    if (p.hp <= 0) playerDied();
+  }
+
+  // ============================================================
+  // PLAYER DEATH / DUNGEON COMPLETE
+  // ============================================================
+
+  function playerDied() {
+    G.dungeon.active = false;
+    G.combat.inCombat = false;
+    G.combat.enemy = null;
+    log.add(`✖ YOU HAVE DIED!`, 'phase');
+    showOverlay(
+      '☠ DEFEAT ☠',
+      `The dungeon has claimed you.\n\nKills this run: ${G.player.kills}\nGold collected: ${G.player.gold}`,
+      'RESTART',
+      () => resetGame()
+    );
+  }
+
+  function dungeonComplete() {
+    G.dungeon.active = false;
+    G.combat.inCombat = false;
+    G.combat.enemy = null;
+    const bonus = rand(50, 100);
+    G.player.gold += bonus;
+    log.add(`✦ DUNGEON COMPLETE! +${bonus} BONUS GOLD`, 'loot');
+    showOverlay(
+      '✦ VICTORY ✦',
+      `THE SHADOW CRYPT HAS BEEN CLEARED!\n\nKills: ${G.player.kills}\nTotal Gold: ${G.player.gold}\nLevel: ${G.player.level}\n\nBonus Gold: +${bonus}`,
+      'PLAY AGAIN',
+      () => resetGame()
+    );
+  }
+
+  // ============================================================
+  // SKILL USAGE
+  // ============================================================
+
+  function useSkill(skillId) {
+    const sk = SKILLS[skillId];
+    const { combat } = G;
+    const p = G.player;
+    const t = now();
+
+    if (!G.dungeon.active || !combat.inCombat || !combat.enemy) return;
+    if (sk.type === 'auto') return;
+
+    if ((combat.skillCooldowns[skillId] || 0) > t) return;
+
+    if (t < (p.stunUntil || 0) && sk.type !== 'buff') {
+      log.add(`You are stunned!`, 'warn');
+      return;
+    }
+
+    if (sk.cost > 0 && p.resource < sk.cost) {
+      log.add(`Not enough RAGE! (${p.resource}/${sk.cost})`, 'warn');
+      return;
+    }
+
+    if (sk.cooldown > 0) combat.skillCooldowns[skillId] = t + sk.cooldown;
+    if (sk.cost > 0) spendResource(sk.cost);
+
+    switch(sk.type) {
+      case 'finisher':
+      case 'damage':
+        playerAttack(sk, sk.damageMulti);
+        break;
+
+      case 'damage_stun':
+        playerAttack(sk, sk.damageMulti);
+        if (combat.enemy) {
+          combat.enemyStunnedUntil = t + sk.stunDuration;
+          combat.enemyCasting = null;
+          log.add(`⚡ ${combat.enemy.name} STUNNED for 2s! Cast interrupted.`, 'buff');
+          floatNearEnemy('STUNNED!', 'player-dmg');
+        }
+        break;
+
+      case 'dash_resource':
+        gainResource(sk.genResourceBonus);
+        playerAttack(sk, sk.damageMulti);
+        log.add(`⚡ CHARGE! +${sk.genResourceBonus} RAGE`, 'buff');
+        break;
+
+      case 'buff':
+        p.buffs[sk.buffKey] = {
+          label: sk.buffLabel,
+          endTime: t + sk.duration,
+          ...sk
+        };
+        log.add(`📢 BATTLE SHOUT! ATK +25% for 10s`, 'buff');
+        floatNearPlayer('+ATK 25%', 'heal');
+        break;
+
+      case 'ultimate':
+        log.add(`🌪 BLADESTORM ACTIVATED!`, 'phase');
+        let totalDmg = 0;
+        for (let i = 0; i < sk.hits; i++) {
+          setTimeout(() => {
+            if (G.combat.enemy && G.combat.enemy.currentHp > 0) {
+              const d = calcPlayerDmg(sk.damageMulti);
+              G.combat.enemy.currentHp = Math.max(0, G.combat.enemy.currentHp - d);
+              totalDmg += d;
+              floatNearEnemy(`-${d}`, 'crit');
+              if (i === sk.hits - 1) {
+                log.add(`🌪 BLADESTORM: ${sk.hits} hits, ${totalDmg} total dmg!`, 'crit');
+                if (G.combat.enemy.currentHp <= 0) enemyDied(G.combat.enemy);
+              }
+            }
+          }, i * 200);
+        }
+        break;
+    }
+  }
+
+  // ============================================================
+  // AUTO ATTACK TIMER
+  // ============================================================
+
+  function autoAttackTick(dt) {
+    if (!G.dungeon.active || !G.combat.inCombat) return;
+    if (now() < (G.player.stunUntil || 0)) return;
+
+    const sk = SKILLS.auto_attack;
+    G.combat.playerAutoTimer -= dt;
+    G.combat.autoProgress = 1 - (G.combat.playerAutoTimer / sk.autoInterval);
+
+    if (G.combat.playerAutoTimer <= 0) {
+      G.combat.playerAutoTimer = sk.autoInterval;
+      G.combat.autoProgress = 0;
+      if (G.combat.enemy && G.combat.enemy.currentHp > 0) {
+        playerAttack(sk, sk.damageMulti);
+        gainResource(sk.genResource);
+      }
+    }
+  }
+
+  // ============================================================
+  // BUFF CLEANUP
+  // ============================================================
+
+  function buffTick() {
+    const t = now();
+    for (const [k, b] of Object.entries(G.player.buffs)) {
+      if (t > b.endTime) {
+        delete G.player.buffs[k];
+        log.add(`${b.label} expired.`, 'dim');
+      }
+    }
+    for (const [k, d] of Object.entries(G.player.debuffs)) {
+      if (t > d.endTime) {
+        delete G.player.debuffs[k];
+      }
+    }
+  }
+
+  // ============================================================
+  // DUNGEON START / RESET
+  // ============================================================
+
+  function startDungeon() {
+    if (G.dungeon.active) return;
+    G.dungeon.active = true;
+    G.dungeon.currentSectorIdx = 0;
+    G.dungeon.currentEnemyIdx = 0;
+    G.dungeon.sectorComplete = [false, false, false, false];
+    G.combat.playerAutoTimer = SKILLS.auto_attack.autoInterval;
+    G.combat.skillCooldowns = {};
+    G.player.resource = 0;
+
+    log.add(`═══════════════════════`, 'dim');
+    log.add(`▸ Entering THE SHADOW CRYPT`, 'system');
+    const _diff = DIFFICULTIES[G.difficulty] || DIFFICULTIES.normal;
+    log.add(`► Difficulty: ${_diff.label}`, 'buff');
+    log.add(`  Sector 1: ${DUNGEON.sectors[0].name}`, 'dim');
+    log.add(`═══════════════════════`, 'dim');
+
+    setTimeout(() => spawnEnemy(DUNGEON.sectors[0].enemies[0]), 800);
+  }
+
+  function resetGame() {
+    const cls = CLASSES.warrior;
+    G.player.hp = cls.baseHp;
+    G.player.maxHp = cls.baseHp;
+    G.player.resource = 0;
+    G.player.level = 1;
+    G.player.exp = 0;
+    G.player.expNext = 100;
+    G.player.atk = cls.baseAtk;
+    G.player.def = cls.baseDef;
+    G.player.spd = cls.baseSpd;
+    G.player.kills = 0;
+    G.player.gold = 0;
+    G.player.buffs = {};
+    G.player.debuffs = {};
+    G.player.stunUntil = 0;
+    G.difficulty = null;
+    G.dungeon.active = false;
+    G.dungeon.currentSectorIdx = 0;
+    G.dungeon.currentEnemyIdx = 0;
+    G.dungeon.sectorComplete = [false,false,false,false];
+    G.combat.inCombat = false;
+    G.combat.enemy = null;
+    G.combat.enemyCasting = null;
+    G.combat.skillCooldowns = {};
+    G.combat.autoProgress = 0;
+    G.combat.attackAnim = '';
+    document.getElementById('combat-log').innerHTML = '';
+    log.add('New run started. Enter dungeon when ready.', 'system');
+  }
+
+  // ============================================================
+  // OVERLAY
+  // ============================================================
+
+  function showOverlay(title, body, btnText, cb) {
+    document.getElementById('overlay-title').textContent = title;
+    document.getElementById('overlay-body').textContent = body;
+    document.getElementById('overlay-btn').textContent = btnText;
+    G.overlayCallback = cb;
+    document.getElementById('overlay').classList.add('visible');
+  }
+
+  function overlayAction() {
+    document.getElementById('overlay').classList.remove('visible');
+    if (G.overlayCallback) G.overlayCallback();
+    G.overlayCallback = null;
+  }
+
+  function showDifficultySelect() {
+    const box = document.getElementById('overlay-box');
+    const btns = Object.entries(DIFFICULTIES).map(([key, d]) =>
+      `<button onclick="chooseDifficulty('${key}')" style="display:block;width:100%;margin-bottom:8px;background:var(--green-dark);border:1px solid ${d.color};color:${d.color};font-family:inherit;font-size:12px;padding:10px 14px;cursor:pointer;letter-spacing:1px;text-align:left">
+        <span style="font-size:13px;display:block">▸ ${d.label}</span>
+        <span style="font-size:10px;opacity:0.65;margin-top:2px;display:block">${d.desc}</span>
+      </button>`
+    ).join('');
+    box.innerHTML = `
+      <div style="color:var(--amber);font-size:16px;margin-bottom:16px;letter-spacing:2px">⚔ SELECT DIFFICULTY ⚔</div>
+      <div>${btns}</div>
+    `;
+    document.getElementById('overlay').classList.add('visible');
+  }
+
+  function chooseDifficulty(key) {
+    G.difficulty = key;
+    document.getElementById('overlay-box').innerHTML = `
+      <div id="overlay-title">TITLE</div>
+      <div id="overlay-body">BODY</div>
+      <button id="overlay-btn" onclick="overlayAction()">CONTINUE</button>
+    `;
+    document.getElementById('overlay').classList.remove('visible');
+    startDungeon();
+  }
+
+  // ============================================================
+  // KEYBOARD
+  // ============================================================
+
+  document.addEventListener('keydown', (e) => {
+    const keyMap = {
+      '1': 'heroic_strike',
+      '2': 'battle_shout',
+      '3': 'whirlwind',
+      '4': 'shield_slam',
+      '5': 'charge',
+      'q': 'bladestorm',
+      'Escape': null
+    };
+    if (e.key in keyMap) {
+      if (e.key === 'Escape') {
+        if (G.dungeon.active) {
+          G.dungeon.active = false;
+          G.combat.inCombat = false;
+          G.combat.enemy = null;
+          log.add('You fled from the dungeon!', 'warn');
+        }
+        return;
+      }
+      useSkill(keyMap[e.key]);
+    }
+    if (e.key === 'Enter' && !G.dungeon.active) showDifficultySelect();
+  });
+
+  // ============================================================
+  // MAIN GAME LOOP
+  // ============================================================
+
+  function gameLoop(ts) {
+    const dt = ts - lastTs;
+    lastTs = ts;
+
+    if (G.dungeon.active) {
+      autoAttackTick(dt);
+      enemyTick(dt);
+      buffTick();
+      autoSkillTick();
+    }
+
+    renderScene();
+    renderStatusBars();
+    renderSkillBar();
+    renderDungeonMap();
+    renderPlayerStats();
+    renderBuffs();
+
+    document.getElementById('combat-state-txt').textContent =
+      !G.dungeon.active ? '[ IDLE - ENTER DUNGEON ]' :
+      !G.combat.inCombat ? '[ ADVANCING... ]' :
+      G.combat.enemy?.isBoss ? `[ BOSS PHASE ${(G.combat.enemy?.currentPhase||0)+1} ]` :
+      `[ IN COMBAT - KEYS: 1-5 SKILLS  Q ULTIMATE  ESC:FLEE ]`;
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  // ============================================================
+  // INIT
+  // ============================================================
+
+  function init() {
+    lastTs = performance.now();
+    G.combat.playerAutoTimer = SKILLS.auto_attack.autoInterval;
+
+    log.add('═══════════════════════════════', 'dim');
+    log.add('  WOWLIKE PROTOTYPE v0.1', 'system');
+    log.add('  Combat System Test', 'dim');
+    log.add('═══════════════════════════════', 'dim');
+    log.add('', 'dim');
+    log.add('► WARRIOR class loaded', 'buff');
+    log.add('► Dungeon: THE SHADOW CRYPT', 'buff');
+    log.add('  4 sectors, 1 boss', 'dim');
+    log.add('', 'dim');
+    log.add('CONTROLS:', 'system');
+    log.add('  AUTO-ATTACK: passive (every 1.8s)', 'dim');
+    log.add('  1: Heroic Strike (60 RAGE)', 'dim');
+    log.add('  2: Battle Shout (ATK buff)', 'dim');
+    log.add('  3: Whirlwind (AoE damage)', 'dim');
+    log.add('  4: Shield Slam (stun)', 'dim');
+    log.add('  5: Charge (+rage)', 'dim');
+    log.add('  Q: BLADESTORM (ultimate)', 'dim');
+    log.add('  ESC: Flee dungeon', 'dim');
+    log.add('', 'dim');
+    log.add('Press ENTER or click button to begin.', 'system');
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  init();
+</script>
+</body>
+</html>
