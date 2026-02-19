@@ -47,7 +47,7 @@ NetHack 스타일의 ASCII 아트 비주얼의 방치형 RPG다. CRT 모니터 �
 **난이도**
 - NORMAL → HARD → NIGHTMARE → HELL 순으로 적 스탯이 강화됨
 
-![WOWLIKE PROTO 전투 화면 컨셉아트](/assets/images/wowlike-proto-battle.png)
+<a href="/assets/images/wowlike-proto-battle.png" target="_blank"><img src="/assets/images/wowlike-proto-battle.png" alt="WOWLIKE PROTO 전투 화면 컨셉아트" style="width: 100%; max-width: 100%; display: block;"></a>
 
 <p style="text-align: center; font-size: 0.8rem; color: #888; margin-top: -0.8rem;"><em>나노바나나(Gemini)로 생성한 컨셉아트</em></p>
 
@@ -79,7 +79,7 @@ NetHack 스타일의 ASCII 아트 비주얼의 방치형 RPG다. CRT 모니터 �
 
 ## 언리얼 엔진 인디게임 개발 계획
 
-![판타지 세계관 컨셉아트](/assets/images/wowlike-proto-concept.png)
+<a href="/assets/images/wowlike-proto-concept.png" target="_blank"><img src="/assets/images/wowlike-proto-concept.png" alt="판타지 세계관 컨셉아트" style="width: 100%; max-width: 100%; display: block;"></a>
 
 <p style="text-align: center; font-size: 0.8rem; color: #888; margin-top: -0.8rem;"><em>나노바나나(Gemini)로 생성한 컨셉아트</em></p>
 
