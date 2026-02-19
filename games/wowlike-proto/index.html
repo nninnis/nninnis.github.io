@@ -464,13 +464,89 @@
     }
 
     .shake { animation: shake 0.3s ease; }
+
+    /* ===== MOBILE RESPONSIVE ===== */
+    .mobile-panel-btn {
+      display: none;
+      background: var(--green-dark);
+      border: 1px solid var(--green-dim);
+      color: var(--green);
+      font-family: inherit;
+      font-size: 10px;
+      padding: 3px 8px;
+      cursor: pointer;
+      letter-spacing: 1px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .mobile-panel-btn.active { border-color: var(--amber); color: var(--amber); }
+
+    #panel-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.55);
+      z-index: 400;
+      cursor: pointer;
+    }
+    #panel-backdrop.visible { display: block; }
+
+    @media (max-width: 680px) {
+      .mobile-panel-btn { display: block; }
+
+      #header { padding: 4px 8px; gap: 4px; }
+      #header .title { font-size: 12px; letter-spacing: 1px; flex: 1; text-align: center; }
+      #header .info { display: none; }
+
+      #main { grid-template-columns: 1fr; }
+
+      #map-panel {
+        display: none;
+        position: fixed;
+        left: 0; top: 0; bottom: 0;
+        width: 220px;
+        z-index: 450;
+        overflow-y: auto;
+        border-right: 1px solid var(--border);
+      }
+      #map-panel.mobile-open { display: flex; }
+
+      #log-panel {
+        display: none;
+        position: fixed;
+        right: 0; top: 0; bottom: 0;
+        width: 220px;
+        z-index: 450;
+        overflow-y: auto;
+        border-left: 1px solid var(--border);
+        border-right: none;
+      }
+      #log-panel.mobile-open { display: flex; }
+
+      .bar-val { display: none; }
+
+      .skill-btn { width: 48px; height: 50px; }
+
+      #overlay-box { min-width: min(300px, 90vw); padding: 16px 20px; }
+
+      #bottom-status { font-size: 9px; gap: 4px; }
+      #combat-state-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    }
+
+    @media (max-width: 420px) {
+      .skill-btn { width: 42px; height: 46px; }
+      .skill-icon { font-size: 15px; }
+      .battle-char { min-width: 110px; }
+    }
   </style>
 </head>
 <body>
 
 <div id="header">
+  <button class="mobile-panel-btn" id="btn-map" onclick="toggleMobilePanel('map')">▸ MAP</button>
   <span class="title">⚔ WOWLIKE PROTO v0.1 ⚔</span>
   <span class="info" id="header-info">DUNGEON: THE SHADOW CRYPT  |  WARRIOR LV.1</span>
+  <button class="mobile-panel-btn" id="btn-log" onclick="toggleMobilePanel('log')">LOG ◂</button>
 </div>
 
 <div id="main">
@@ -553,6 +629,8 @@
     <div id="combat-log"></div>
   </div>
 </div>
+
+<div id="panel-backdrop" onclick="closeAllMobilePanels()"></div>
 
 <!-- OVERLAY -->
 <div id="overlay">
@@ -1826,6 +1904,7 @@
       <button id="overlay-btn" onclick="overlayAction()">CONTINUE</button>
     `;
     document.getElementById('overlay').classList.remove('visible');
+    closeAllMobilePanels();
     startDungeon();
   }
 
@@ -1887,6 +1966,54 @@
       `[ IN COMBAT - KEYS: 1-5 SKILLS  Q ULTIMATE  ESC:FLEE ]`;
 
     requestAnimationFrame(gameLoop);
+  }
+
+  // ============================================================
+  // MOBILE PANEL TOGGLE
+  // ============================================================
+
+  function toggleMobilePanel(which) {
+    const mapPanel = document.getElementById('map-panel');
+    const logPanel = document.getElementById('log-panel');
+    const backdrop = document.getElementById('panel-backdrop');
+    const btnMap = document.getElementById('btn-map');
+    const btnLog = document.getElementById('btn-log');
+
+    if (which === 'map') {
+      const isOpen = mapPanel.classList.contains('mobile-open');
+      logPanel.classList.remove('mobile-open');
+      btnLog.classList.remove('active');
+      if (isOpen) {
+        mapPanel.classList.remove('mobile-open');
+        btnMap.classList.remove('active');
+        backdrop.classList.remove('visible');
+      } else {
+        mapPanel.classList.add('mobile-open');
+        btnMap.classList.add('active');
+        backdrop.classList.add('visible');
+      }
+    } else {
+      const isOpen = logPanel.classList.contains('mobile-open');
+      mapPanel.classList.remove('mobile-open');
+      btnMap.classList.remove('active');
+      if (isOpen) {
+        logPanel.classList.remove('mobile-open');
+        btnLog.classList.remove('active');
+        backdrop.classList.remove('visible');
+      } else {
+        logPanel.classList.add('mobile-open');
+        btnLog.classList.add('active');
+        backdrop.classList.add('visible');
+      }
+    }
+  }
+
+  function closeAllMobilePanels() {
+    document.getElementById('map-panel').classList.remove('mobile-open');
+    document.getElementById('log-panel').classList.remove('mobile-open');
+    document.getElementById('panel-backdrop').classList.remove('visible');
+    document.getElementById('btn-map').classList.remove('active');
+    document.getElementById('btn-log').classList.remove('active');
   }
 
   // ============================================================
