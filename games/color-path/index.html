@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Color Path Puzzle</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
+  body {
+    background: #1a1a2e;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    font-family: 'Fredoka', sans-serif;
+  }
+  canvas { display: block; border-radius: 12px; }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+
+  const MAX_W = 420, MAX_H = 740;
+  function resize() {
+    const s = Math.min(window.innerWidth / MAX_W, window.innerHeight / MAX_H, 1);
+    canvas.width = MAX_W; canvas.height = MAX_H;
+    canvas.style.width = (MAX_W * s) + 'px';
+    canvas.style.height = (MAX_H * s) + 'px';
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  const W = MAX_W, H = MAX_H;
+
+  // ============ COLOR SYSTEM ============
+  const COLORS = {
+    empty:  { r:0, y:0, b:0, hex:'#2a2a4a', name:'색 없음' },
+    red:    { r:1, y:0, b:0, hex:'#ff4455', name:'빨강' },
+    yellow: { r:0, y:1, b:0, hex:'#ffcc00', name:'노랑' },
+    blue:   { r:0, y:0, b:1, hex:'#3388ff', name:'파랑' },
+    orange: { r:1, y:1, b:0, hex:'#ff8833', name:'주황' },
+    green:  { r:0, y:1, b:1, hex:'#33bb55', name:'초록' },
+    purple: { r:1, y:0, b:1, hex:'#aa44dd', name:'보라' },
+    brown:  { r:1, y:1, b:1, hex:'#cc8822', name:'갈색' },
+  };
+
+  function mixColors(c1, c2) {
+    return { r: Math.min(1, c1.r+c2.r), y: Math.min(1, c1.y+c2.y), b: Math.min(1, c1.b+c2.b) };
+  }
+  function colorKey(c) { return `${c.r},${c.y},${c.b}`; }
+  function colorMatch(c1, c2) { return c1.r===c2.r && c1.y===c2.y && c1.b===c2.b; }
+  function getHex(c) {
+    for (const col of Object.values(COLORS)) { if (colorKey(col)===colorKey(c)) return col.hex; }
+    return '#888';
+  }
+  function getName(c) {
+    for (const col of Object.values(COLORS)) { if (colorKey(col)===colorKey(c)) return col.name; }
+    return '?';
+  }
+
+  const TARGET_MAP = {
+    'o': COLORS.orange, 'g': COLORS.green, 'p': COLORS.purple,
+    'w': COLORS.brown, 'r': COLORS.red, 'y': COLORS.yellow, 'b': COLORS.blue,
+  };
+  const SOURCE_MAP = { 'R': COLORS.red, 'Y': COLORS.yellow, 'B': COLORS.blue };
+
+  // ============ VERIFIED SOLVABLE LEVELS ============
+  const LEVELS = [
+    {
+      name: "첫 번째 혼합",
+      hint: "빨강을 지나고 노랑을 지나면\n주황이 됩니다!",
+      grid: [
+        ['R', '.', 'Y'],
+        ['.', 'o', '.'],
+        ['.', '.', '.'],
+      ]
+    },
+    {
+      name: "초록빛 경로",
+      hint: "파랑 + 노랑 = 초록",
+      grid: [
+        ['B', '.', '.'],
+        ['.', 'g', '.'],
+        ['.', '.', 'Y'],
+      ]
+    },
+    {
+      name: "보라빛 길",
+      hint: "빨강 + 파랑 = 보라",
+      grid: [
+        ['.', 'R', '.'],
+        ['.', 'p', '.'],
+        ['.', 'B', '.'],
+      ]
+    },
+    {
+      name: "두 가지 목표",
+      hint: "빨강 먼저 달성한 뒤\n노랑을 추가하면 주황!",
+      grid: [
+        ['.', 'R', 'r'],
+        ['.', '.', '.'],
+        ['Y', '.', 'o'],
+      ]
+    },
+    {
+      name: "단계별 혼합",
+      hint: "초록을 먼저 만들고\n빨강을 추가하면 갈색!",
+      grid: [
+        ['B', '.', '.'],
+        ['.', '.', 'g'],
+        ['.', 'R', '.'],
+        ['Y', '.', 'w'],
+      ]
+    },
+    {
+      name: "갈색 도전",
+      hint: "세 가지 색을 모두 모으면\n갈색이 됩니다!",
+      grid: [
+        ['.', 'R', '.', '.'],
+        ['.', '.', 'Y', '.'],
+        ['.', '.', '.', 'B'],
+        ['w', '.', '.', '.'],
+      ]
+    },
+    {
+      name: "넓은 퍼즐",
+      hint: "경로의 순서를 잘 계획하세요\n빨강 → 주황 순서로!",
+      grid: [
+        ['R', '.', '.', 'r'],
+        ['.', '.', '.', '.'],
+        ['Y', '.', '.', 'o'],
+        ['.', '.', '.', '.'],
+      ]
+    },
+    {
+      name: "최종 퍼즐",
+      hint: "빨강 → 주황 → 갈색\n단계별로 색을 완성하세요!",
+      grid: [
+        ['R', '.', '.', '.', 'r'],
+        ['.', '.', '.', '.', '.'],
+        ['Y', '.', '.', '.', 'o'],
+        ['.', '.', '.', '.', '.'],
+        ['B', '.', '.', '.', 'w'],
+      ]
+    },
+  ];
+
+  // ============ GAME STATE ============
+  let currentLevel = 0;
+  let grid = [];
+  let gridRows = 0, gridCols = 0;
+  let cellSize = 0, gridOffsetX = 0, gridOffsetY = 0;
+  let path = [];
+  let pathColors = [];
+  let isDrawing = false;
+  let solved = false;
+  let solvedTimer = 0;
+  let showHint = false;
+  let animTimer = 0;
+  let state = 'MENU';
+  let menuAnim = 0;
+  let wrongCells = [];
+  let wrongTimer = 0;
+
+  function loadLevel(idx) {
+    const lvl = LEVELS[idx];
+    gridRows = lvl.grid.length;
+    gridCols = lvl.grid[0].length;
+    grid = [];
+    for (let r = 0; r < gridRows; r++) {
+      for (let c = 0; c < gridCols; c++) {
+        const ch = lvl.grid[r][c];
+        grid.push({ row: r, col: c, type: ch, source: SOURCE_MAP[ch]||null, target: TARGET_MAP[ch]||null });
+      }
+    }
+    const maxCellW = (W - 60) / gridCols;
+    const maxCellH = (H - 340) / gridRows;
+    cellSize = Math.min(maxCellW, maxCellH, 85);
+    gridOffsetX = (W - gridCols * cellSize) / 2;
+    gridOffsetY = 270;
+    path = []; pathColors = [];
+    isDrawing = false; solved = false; solvedTimer = 0;
+    showHint = false; wrongCells = []; wrongTimer = 0;
+    state = 'PLAYING';
+  }
+
+  function getCell(r, c) { return grid.find(g => g.row===r && g.col===c); }
+  function cellCenter(r, c) {
+    return { x: gridOffsetX + c*cellSize + cellSize/2, y: gridOffsetY + r*cellSize + cellSize/2 };
+  }
+  function hitTest(px, py) {
+    for (let r = 0; r < gridRows; r++) {
+      for (let c = 0; c < gridCols; c++) {
+        const cx = gridOffsetX + c*cellSize + cellSize/2;
+        const cy = gridOffsetY + r*cellSize + cellSize/2;
+        if (Math.abs(px-cx) < cellSize/2 && Math.abs(py-cy) < cellSize/2) return {row:r,col:c};
+      }
+    }
+    return null;
+  }
+  function isAdj(a, b) { return Math.abs(a.row-b.row) + Math.abs(a.col-b.col) === 1; }
+  function isInPath(r, c) { return path.some(p => p.row===r && p.col===c); }
+
+  function recomputePathColors() {
+    pathColors = [];
+    let color = {r:0,y:0,b:0};
+    for (let i = 0; i < path.length; i++) {
+      const cell = getCell(path[i].row, path[i].col);
+      if (cell && cell.source) color = mixColors(color, cell.source);
+      pathColors.push({...color});
+    }
+  }
+
+  function checkSolution() {
+    if (path.length !== gridRows * gridCols) return false;
+    wrongCells = [];
+    let ok = true;
+    for (let i = 0; i < path.length; i++) {
+      const cell = getCell(path[i].row, path[i].col);
+      if (cell && cell.target && !colorMatch(pathColors[i], cell.target)) {
+        wrongCells.push({row: path[i].row, col: path[i].col});
+        ok = false;
+      }
+    }
+    return ok;
+  }
+
+  // ============ INPUT ============
+  function getPointerPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const sx = W / rect.width, sy = H / rect.height;
+    const cx = e.clientX ?? e.touches?.[0]?.clientX ?? 0;
+    const cy = e.clientY ?? e.touches?.[0]?.clientY ?? 0;
+    return { x: (cx - rect.left)*sx, y: (cy - rect.top)*sy };
+  }
+
+  function tryExtendPath(hit) {
+    const last = path[path.length - 1];
+    if (hit.row===last.row && hit.col===last.col) return;
+    // Backtrack
+    if (path.length >= 2) {
+      const prev = path[path.length - 2];
+      if (hit.row===prev.row && hit.col===prev.col) {
+        path.pop(); recomputePathColors(); return;
+      }
+    }
+    if (!isAdj(last, hit) || isInPath(hit.row, hit.col)) return;
+    path.push(hit); recomputePathColors(); wrongCells = [];
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    const pos = getPointerPos(e);
+
+    if (state === 'MENU') {
+      if (pos.y > 440 && pos.y < 495) loadLevel(currentLevel);
+      return;
+    }
+    if (state === 'SOLVED') {
+      if (currentLevel < LEVELS.length - 1) { currentLevel++; loadLevel(currentLevel); }
+      else state = 'MENU';
+      return;
+    }
+    if (state === 'PLAYING') {
+      // Hint btn
+      if (pos.x > 10 && pos.x < 90 && pos.y > 205 && pos.y < 245) { showHint = !showHint; return; }
+      // Reset btn
+      if (pos.x > W-145 && pos.x < W-85 && pos.y > 205 && pos.y < 245) {
+        path=[]; pathColors=[]; wrongCells=[]; return;
+      }
+      // Undo btn
+      if (pos.x > W-75 && pos.x < W-5 && pos.y > 205 && pos.y < 245) {
+        if (path.length > 1) { path.pop(); recomputePathColors(); }
+        else { path=[]; pathColors=[]; }
+        wrongCells=[]; return;
+      }
+      // Grid
+      const hit = hitTest(pos.x, pos.y);
+      if (!hit) return;
+      if (path.length === 0) {
+        path = [hit]; recomputePathColors(); isDrawing = true; wrongCells = [];
+      } else {
+        path = [hit]; recomputePathColors(); isDrawing = true; wrongCells = [];
+      }
+    }
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    e.preventDefault();
+    if (!isDrawing || state !== 'PLAYING') return;
+    const pos = getPointerPos(e);
+    const hit = hitTest(pos.x, pos.y);
+    if (hit) tryExtendPath(hit);
+  });
+
+  canvas.addEventListener('pointerup', (e) => {
+    e.preventDefault();
+    if (state === 'PLAYING' && isDrawing) {
+      isDrawing = false;
+      if (path.length === gridRows * gridCols) {
+        if (checkSolution()) { solved = true; solvedTimer = 0; state = 'SOLVED'; }
+        else wrongTimer = 2.0;
+      }
+    }
+  });
+  canvas.addEventListener('pointerleave', () => { isDrawing = false; });
+
+  document.addEventListener('keydown', (e) => {
+    if (state === 'MENU' && (e.code==='Space'||e.code==='Enter')) loadLevel(currentLevel);
+    if (state === 'SOLVED' && (e.code==='Space'||e.code==='Enter')) {
+      if (currentLevel < LEVELS.length-1) { currentLevel++; loadLevel(currentLevel); } else state='MENU';
+    }
+    if (state === 'PLAYING') {
+      if (e.code === 'KeyZ') {
+        if (path.length > 1) { path.pop(); recomputePathColors(); }
+        else { path=[]; pathColors=[]; }
+        wrongCells=[];
+      }
+      if (e.code === 'KeyR') { path=[]; pathColors=[]; wrongCells=[]; }
+    }
+  });
+
+  // ============ UPDATE ============
+  function update(dt) {
+    animTimer += dt;
+    if (state === 'MENU') menuAnim += dt;
+    if (state === 'SOLVED') solvedTimer += dt;
+    if (wrongTimer > 0) wrongTimer -= dt;
+  }
+
+  // ============ DRAWING ============
+  function roundRect(x,y,w,h,r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y); ctx.closePath();
+  }
+
+  function drawBG() {
+    ctx.fillStyle = '#1a1a2e'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle = 'rgba(255,255,255,0.012)';
+    for (let i = 0; i < 10; i++) {
+      const x = (i*67 + animTimer*3) % (W+40) - 20;
+      const y = (i*89) % H;
+      ctx.beginPath(); ctx.arc(x,y,25+Math.sin(animTimer+i)*8,0,Math.PI*2); ctx.fill();
+    }
+  }
+
+  function drawGrid() {
+    const pad = 5;
+    const inner = cellSize - pad*2;
+
+    for (const cell of grid) {
+      const cx = gridOffsetX + cell.col*cellSize + cellSize/2;
+      const cy = gridOffsetY + cell.row*cellSize + cellSize/2;
+      const x = cx - inner/2, y = cy - inner/2;
+      const inP = isInPath(cell.row, cell.col);
+      const isWrong = wrongCells.some(w => w.row===cell.row && w.col===cell.col);
+      const wFlash = isWrong && wrongTimer > 0 ? Math.sin(wrongTimer*15)*0.3+0.3 : 0;
+
+      ctx.save();
+      roundRect(x,y,inner,inner,10);
+
+      if (inP) {
+        const pIdx = path.findIndex(p => p.row===cell.row && p.col===cell.col);
+        const hex = getHex(pathColors[pIdx]);
+        ctx.fillStyle = hex + '35'; ctx.fill();
+        ctx.strokeStyle = hex; ctx.lineWidth = 2.5; ctx.stroke();
+      } else {
+        ctx.fillStyle = '#252545'; ctx.fill();
+        ctx.strokeStyle = '#3a3a5a'; ctx.lineWidth = 1.5; ctx.stroke();
+      }
+      if (wFlash > 0) { ctx.fillStyle = `rgba(255,50,50,${wFlash})`; ctx.fill(); }
+      ctx.restore();
+
+      // Source
+      if (cell.source) {
+        const sh = getHex(cell.source);
+        ctx.save(); ctx.shadowColor = sh; ctx.shadowBlur = 14;
+        ctx.fillStyle = sh;
+        ctx.beginPath(); ctx.arc(cx,cy,inner*0.3,0,Math.PI*2); ctx.fill();
+        ctx.restore();
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.beginPath(); ctx.arc(cx-3,cy-3,inner*0.1,0,Math.PI*2); ctx.fill();
+      }
+
+      // Target
+      if (cell.target) {
+        const th = getHex(cell.target);
+        ctx.strokeStyle = th; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(cx,cy,inner*0.3,0,Math.PI*2); ctx.stroke();
+        ctx.setLineDash([4,4]); ctx.strokeStyle = th+'80'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.arc(cx,cy,inner*0.2,0,Math.PI*2); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = th;
+        ctx.font = `bold ${inner*0.26}px Fredoka, sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('★', cx, cy+1);
+
+        if (inP) {
+          const pIdx = path.findIndex(p => p.row===cell.row && p.col===cell.col);
+          const match = colorMatch(pathColors[pIdx], cell.target);
+          ctx.font = `bold ${inner*0.2}px Fredoka, sans-serif`;
+          ctx.fillStyle = match ? '#00ff88' : '#ff4444';
+          ctx.fillText(match ? '✓' : '✗', cx+inner*0.32, cy-inner*0.28);
+        }
+      }
+    }
+  }
+
+  function drawPath() {
+    if (path.length < 2) return;
+    for (let i = 1; i < path.length; i++) {
+      const from = cellCenter(path[i-1].row, path[i-1].col);
+      const to = cellCenter(path[i].row, path[i].col);
+      const hex = getHex(pathColors[i]);
+      ctx.save(); ctx.shadowColor = hex; ctx.shadowBlur = 8;
+      ctx.strokeStyle = hex; ctx.lineWidth = 5; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(from.x,from.y); ctx.lineTo(to.x,to.y); ctx.stroke();
+      ctx.restore();
+      ctx.strokeStyle = hex+'cc'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(from.x,from.y); ctx.lineTo(to.x,to.y); ctx.stroke();
+    }
+    // Start dot
+    const s = cellCenter(path[0].row, path[0].col);
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(s.x,s.y,5,0,Math.PI*2); ctx.fill();
+    // End dot
+    const e = cellCenter(path[path.length-1].row, path[path.length-1].col);
+    const eh = getHex(pathColors[pathColors.length-1]);
+    const pulse = Math.sin(animTimer*4)*3+9;
+    ctx.save(); ctx.shadowColor = eh; ctx.shadowBlur = 12;
+    ctx.fillStyle = eh;
+    ctx.beginPath(); ctx.arc(e.x,e.y,pulse,0,Math.PI*2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.beginPath(); ctx.arc(e.x,e.y,3.5,0,Math.PI*2); ctx.fill();
+  }
+
+  function drawLegend() {
+    const y = 185;
+    const pairs = [
+      [COLORS.red, COLORS.yellow, COLORS.orange],
+      [COLORS.yellow, COLORS.blue, COLORS.green],
+      [COLORS.red, COLORS.blue, COLORS.purple],
+    ];
+    const tw = pairs.length * 120;
+    const sx = (W - tw) / 2;
+    ctx.font = '11px Fredoka, sans-serif'; ctx.textAlign = 'center';
+    pairs.forEach((p,i) => {
+      const bx = sx + i*130 + 20;
+      ctx.fillStyle = p[0].hex;
+      ctx.beginPath(); ctx.arc(bx,y,7,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillText('+', bx+17, y+4);
+      ctx.fillStyle = p[1].hex;
+      ctx.beginPath(); ctx.arc(bx+33,y,7,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillText('=', bx+50, y+4);
+      ctx.fillStyle = p[2].hex;
+      ctx.beginPath(); ctx.arc(bx+66,y,7,0,Math.PI*2); ctx.fill();
+    });
+  }
+
+  function drawPlayingUI() {
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 22px Fredoka, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(`Level ${currentLevel+1}: ${LEVELS[currentLevel].name}`, W/2, 40);
+    ctx.font = '14px Fredoka, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.fillText(`${path.length} / ${gridRows*gridCols} 칸`, W/2, 62);
+
+    // Current brush
+    if (path.length > 0) {
+      const col = pathColors[pathColors.length-1];
+      const hex = getHex(col); const nm = getName(col);
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.font = '13px Fredoka, sans-serif';
+      ctx.textAlign = 'center'; ctx.fillText('현재 붓:', W/2-30, 100);
+      ctx.save(); ctx.shadowColor = hex; ctx.shadowBlur = 8;
+      ctx.fillStyle = hex;
+      ctx.beginPath(); ctx.arc(W/2+20, 96, 10, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = '#fff'; ctx.font = '12px Fredoka, sans-serif';
+      ctx.fillText(nm, W/2+55, 100);
+    }
+
+    drawLegend();
+
+    // Buttons
+    ctx.font = '13px Fredoka, sans-serif';
+    ctx.fillStyle = showHint ? '#ffcc00' : 'rgba(255,255,255,0.35)';
+    ctx.textAlign = 'left'; ctx.fillText('💡 힌트', 15, 230);
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.textAlign = 'right';
+    ctx.fillText('↺ 리셋', W-85, 230);
+    ctx.fillText('← 되돌리기', W-8, 230);
+
+    if (showHint) {
+      const lines = LEVELS[currentLevel].hint.split('\n');
+      ctx.fillStyle = 'rgba(255,200,50,0.8)'; ctx.font = '13px Fredoka, sans-serif'; ctx.textAlign = 'center';
+      lines.forEach((l,i) => ctx.fillText(l, W/2, H-80+i*20));
+    }
+
+    if (wrongTimer > 0 && wrongCells.length > 0) {
+      ctx.fillStyle = `rgba(255,80,80,${Math.min(1,wrongTimer)})`;
+      ctx.font = 'bold 16px Fredoka, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('색이 맞지 않는 칸이 있어요!', W/2, H-40);
+    } else if (path.length === 0) {
+      const pulse = Math.sin(animTimer*3)*0.2+0.6;
+      ctx.fillStyle = `rgba(255,255,255,${pulse})`;
+      ctx.font = '14px Fredoka, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('아무 칸을 터치해서 시작하세요', W/2, H-40);
+    } else if (path.length > 0 && path.length < gridRows*gridCols) {
+      ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '12px Fredoka, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('인접한 칸으로 드래그하세요 (되돌리기 가능)', W/2, H-40);
+    } else if (path.length === gridRows*gridCols && !solved) {
+      ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '13px Fredoka, sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('손가락을 떼면 결과를 확인합니다', W/2, H-40);
+    }
+  }
+
+  function drawSolved() {
+    const a = Math.min(0.7, solvedTimer*2);
+    ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.fillRect(0,0,W,H);
+    if (solvedTimer < 0.3) return;
+    const sc = Math.min(1, (solvedTimer-0.3)*4);
+    ctx.save(); ctx.translate(W/2, H/2-30); ctx.scale(sc,sc);
+    ctx.fillStyle = '#00ff88'; ctx.font = 'bold 46px Fredoka, sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('클리어! ✨', 0, -35);
+    ctx.fillStyle = '#fff'; ctx.font = '18px Fredoka, sans-serif';
+    ctx.fillText(`Level ${currentLevel+1} 완료!`, 0, 15);
+    if (currentLevel < LEVELS.length-1) {
+      const p = Math.sin(animTimer*3)*0.2+0.8;
+      ctx.fillStyle = `rgba(255,220,80,${p})`; ctx.font = 'bold 20px Fredoka, sans-serif';
+      ctx.fillText('TAP → 다음 레벨', 0, 70);
+    } else {
+      ctx.fillStyle = '#ffcc00'; ctx.font = 'bold 20px Fredoka, sans-serif';
+      ctx.fillText('모든 레벨 클리어! 🎉', 0, 60);
+      ctx.font = '15px Fredoka, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.fillText('TAP → 메뉴로', 0, 90);
+    }
+    ctx.restore();
+    // Confetti
+    if (solvedTimer > 0.3) {
+      const t = solvedTimer - 0.3;
+      ctx.globalAlpha = Math.max(0, 1-t*0.4);
+      for (let i = 0; i < 24; i++) {
+        const ang = (i/24)*Math.PI*2 + t*1.5;
+        const d = t*160 + i*4;
+        const px = W/2 + Math.cos(ang)*d, py = H/2-30 + Math.sin(ang)*d;
+        const cols = ['#ff4455','#ffcc00','#3388ff','#00ff88','#aa44dd','#ff8833'];
+        ctx.fillStyle = cols[i%cols.length];
+        ctx.beginPath(); ctx.arc(px,py,Math.max(0,4-t),0,Math.PI*2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function drawMenu() {
+    drawBG();
+    const b = Math.sin(menuAnim*2)*4;
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 40px Fredoka, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('Color Path', W/2, 160+b);
+    ctx.font = '15px Fredoka, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.45)';
+    ctx.fillText('색을 섞어 길을 만드세요', W/2, 195);
+
+    // Orbiting colors
+    const cols = [COLORS.red, COLORS.yellow, COLORS.blue, COLORS.orange, COLORS.green, COLORS.purple];
+    cols.forEach((c,i) => {
+      const ang = menuAnim*0.8 + (i/cols.length)*Math.PI*2;
+      ctx.save(); ctx.shadowColor = c.hex; ctx.shadowBlur = 12;
+      ctx.fillStyle = c.hex;
+      ctx.beginPath(); ctx.arc(W/2+Math.cos(ang)*65, 290+Math.sin(ang)*28, 13, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    });
+
+    ctx.font = '13px Fredoka, sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.4)';
+    ctx.fillText('모든 칸을 한 번씩 지나가세요', W/2, 355);
+    ctx.fillText('색 원천(●)을 지나면 붓에 색이 묻습니다', W/2, 378);
+    ctx.fillText('★ 칸에 올바른 색으로 도달해야 합니다', W/2, 401);
+    ctx.fillText('색은 누적됩니다 (빼기 불가!)', W/2, 424);
+
+    const pulse = Math.sin(menuAnim*3)*0.15+0.85;
+    ctx.save(); roundRect(W/2-85, 448, 170, 48, 24);
+    ctx.fillStyle = `rgba(255,220,80,${pulse})`; ctx.fill(); ctx.restore();
+    ctx.fillStyle = '#1a1a2e'; ctx.font = 'bold 19px Fredoka, sans-serif';
+    ctx.fillText('시작하기', W/2, 478);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '13px Fredoka, sans-serif';
+    ctx.fillText(`Level ${currentLevel+1} / ${LEVELS.length}`, W/2, 525);
+
+    const dx = W/2 - (LEVELS.length*20)/2;
+    LEVELS.forEach((_,i) => {
+      ctx.fillStyle = i < currentLevel ? '#00ff88' : i===currentLevel ? '#ffcc00' : 'rgba(255,255,255,0.2)';
+      ctx.beginPath(); ctx.arc(dx+i*20+10, 548, 5, 0, Math.PI*2); ctx.fill();
+    });
+
+    ctx.fillStyle = 'rgba(255,255,255,0.2)'; ctx.font = '12px Fredoka, sans-serif';
+    ctx.fillText('SPACE / 화면 터치', W/2, 600);
+  }
+
+  // ============ MAIN LOOP ============
+  let lastTime = 0;
+  function loop(time) {
+    const dt = Math.min((time - lastTime)/1000, 0.05);
+    lastTime = time;
+    update(dt);
+
+    if (state === 'MENU') {
+      drawMenu();
+    } else if (state === 'PLAYING') {
+      drawBG(); drawGrid(); drawPath(); drawPlayingUI();
+    } else if (state === 'SOLVED') {
+      drawBG(); drawGrid(); drawPath(); drawSolved();
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
