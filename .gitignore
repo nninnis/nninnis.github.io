@@ -15,7 +15,8 @@ Gemfile.lock
 # JetBrains IDE
 .idea/
 
-# Claude Code local settings (personal overrides, not for sharing)
+# Claude Code
+CLAUDE.md
 .claude/settings.local.json
 
 # Environment variables & secrets
