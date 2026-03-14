@@ -1,6 +1,28 @@
+# Jekyll build output
 _site/
 .jekyll-cache/
 .sass-cache/
+
+# Ruby / Bundler
 .bundle/
 vendor/
 Gemfile.lock
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# JetBrains IDE
+.idea/
+
+# Claude Code local settings (personal overrides, not for sharing)
+.claude/settings.local.json
+
+# Environment variables & secrets
+.env
+.env.*
+*.key
+*.pem
+
+# Logs
+*.log
