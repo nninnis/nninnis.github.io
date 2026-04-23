@@ -7,7 +7,6 @@ permalink: /archive/
 <header class="header">
   <nav class="nav">
     <a href="{{ '/' | relative_url }}">home</a>
-    <a href="{{ '/about/' | relative_url }}">about</a>
     <a href="{{ '/archive/' | relative_url }}">archive</a>
   </nav>
 </header>
