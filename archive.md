@@ -18,7 +18,7 @@ permalink: /archive/
 
     {% assign ps_posts = site.posts | where: "category", "painting-star" %}
     {% assign game_posts = site.posts | where: "category", "game" %}
-    {% assign other_posts = site.posts | where_exp: "post", "post.category != 'painting-star' and post.category != 'game'" %}
+    {% assign other_posts = site.posts | where_exp: "post", "post.category != 'painting-star'" | where_exp: "post", "post.category != 'game'" %}
 
     {% if ps_posts.size > 0 %}
     <div class="archive-category">
