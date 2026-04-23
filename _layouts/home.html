@@ -11,15 +11,20 @@ layout: default
 </header>
 
 <main class="main">
-  <section class="hero">
-    <h1>{{ site.title }}</h1>
-    <p>{{ site.description }}</p>
+  <section class="hero painting-star-hero">
+    <h1>Painting Star</h1>
+    <p>색을 섞으며 별을 그리는 퍼즐 게임</p>
+    <div class="app-store-link">
+      <a href="https://apps.apple.com/app/painting-star/id6746771474" target="_blank" rel="noopener">App Store &rarr;</a>
+    </div>
   </section>
 
   <section class="posts">
-    {% if site.posts.size > 0 %}
+    <h2 class="section-label">개발 기록</h2>
+    {% assign ps_posts = site.posts | where: "category", "painting-star" %}
+    {% if ps_posts.size > 0 %}
       <ul class="post-list">
-        {% for post in site.posts limit:5 %}
+        {% for post in ps_posts %}
         <li>
           <a href="{{ post.url | relative_url }}">
             <span class="post-title">{{ post.title }}</span>
@@ -31,6 +36,10 @@ layout: default
     {% else %}
       <p class="empty">...</p>
     {% endif %}
+  </section>
+
+  <section class="blog-link">
+    <a href="{{ '/archive/' | relative_url }}" class="dev-blog-link">개발 블로그 &rarr;</a>
   </section>
 </main>
 

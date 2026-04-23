@@ -1,7 +1,7 @@
 ---
 title: "Color Path - 색을 섞으며 길을 그리는 퍼즐 게임"
 date: 2026-03-09
-category: game
+category: painting-star
 description: "모든 칸을 한 번씩 지나가면서 색을 섞어 목표 색에 도달하는 경로 퍼즐 게임"
 ---
 

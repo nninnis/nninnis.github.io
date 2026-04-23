@@ -16,12 +16,15 @@ permalink: /archive/
   <section class="archive">
     <h1>Archive</h1>
 
-    {% assign posts_by_year = site.posts | group_by_exp: "post", "post.date | date: '%Y'" %}
-    {% for year in posts_by_year %}
-    <div class="archive-year">
-      <h2>{{ year.name }}</h2>
+    {% assign ps_posts = site.posts | where: "category", "painting-star" %}
+    {% assign game_posts = site.posts | where: "category", "game" %}
+    {% assign other_posts = site.posts | where_exp: "post", "post.category != 'painting-star' and post.category != 'game'" %}
+
+    {% if ps_posts.size > 0 %}
+    <div class="archive-category">
+      <h2>Painting Star</h2>
       <ul class="archive-list">
-        {% for post in year.items %}
+        {% for post in ps_posts %}
         <li>
           <a href="{{ post.url | relative_url }}">
             <span class="archive-date">{{ post.date | date: "%m.%d" }}</span>
@@ -31,7 +34,39 @@ permalink: /archive/
         {% endfor %}
       </ul>
     </div>
-    {% endfor %}
+    {% endif %}
+
+    {% if game_posts.size > 0 %}
+    <div class="archive-category">
+      <h2>게임</h2>
+      <ul class="archive-list">
+        {% for post in game_posts %}
+        <li>
+          <a href="{{ post.url | relative_url }}">
+            <span class="archive-date">{{ post.date | date: "%m.%d" }}</span>
+            <span class="archive-title">{{ post.title }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if other_posts.size > 0 %}
+    <div class="archive-category">
+      <h2>AI · 개발</h2>
+      <ul class="archive-list">
+        {% for post in other_posts %}
+        <li>
+          <a href="{{ post.url | relative_url }}">
+            <span class="archive-date">{{ post.date | date: "%m.%d" }}</span>
+            <span class="archive-title">{{ post.title }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
 
     {% if site.posts.size == 0 %}
     <p class="empty">...</p>

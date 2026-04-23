@@ -421,6 +421,48 @@ a:hover {
   color: var(--black);
 }
 
+/* Painting Star Landing */
+.painting-star-hero {
+  margin-bottom: 48px;
+}
+
+.app-store-link {
+  margin-top: 16px;
+}
+
+.app-store-link a {
+  font-size: 14px;
+  color: var(--gray);
+}
+
+.app-store-link a:hover {
+  color: var(--black);
+}
+
+.section-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray);
+  margin-bottom: 20px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.blog-link {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--light);
+}
+
+.dev-blog-link {
+  font-size: 13px;
+  color: var(--gray);
+}
+
+.dev-blog-link:hover {
+  color: var(--black);
+}
+
 /* Archive Page */
 .archive-main {
   justify-content: flex-start;
@@ -432,6 +474,19 @@ a:hover {
   font-weight: 500;
   letter-spacing: -0.02em;
   margin-bottom: 48px;
+}
+
+.archive-category {
+  margin-bottom: 48px;
+}
+
+.archive-category h2 {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray);
+  margin-bottom: 16px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .archive-year {
