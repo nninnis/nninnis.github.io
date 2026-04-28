@@ -64,7 +64,7 @@
     </div>
 
     <p style="opacity:.7; font-size:11px; margin-top:6px">벽 점프 · 새/구름 밟기로 더 높이!</p>
-    <div class="keys" style="font-size:10px; opacity:.6">탭=점프 / 누른 채 좌우 끌기=이동 / 벽에서 탭=벽점프</div>
+    <div class="keys" style="font-size:10px; opacity:.6">탭=점프 / 좌우 끌기=이동 / 벽 탭=벽점프<br>안전 새(비·갈·펠) 통과 가능 / 위험 새(까·독·알) 옆 충돌=사망</div>
     <button id="startBtn">시작</button>
   </div>
 
@@ -90,6 +90,23 @@ const MOVE_ACCEL = 0.55;
 const MAX_VX = 5;
 const FRICTION = 0.85;
 const WALL_SLIDE_VY = 2.2;
+
+// ============== 새 종 정의 (v10g-2) ==============
+// 안전 3종: 비둘기(작음) < 갈매기(중간) < 펠리컨(큼)
+// 위험 3종: 까마귀 < 독수리 < 알바트로스
+// 특수: 기러기
+const BIRD_SPECIES = {
+  // 안전 3종: 통과 가능 + 위에서 밟으면 슈퍼점프
+  pigeon:    { safe:true,  passThrough:true,  speed:0.6, range:50,  pattern:'micro',     w:30, h:20, color:'#7a8090', dark:'#4a5060' },
+  seagull:   { safe:true,  passThrough:true,  speed:1.1, range:80,  pattern:'horizontal',w:42, h:22, color:'#f0f0f0', dark:'#a0a0b0' },
+  pelican:   { safe:true,  passThrough:true,  speed:1.4, range:90,  pattern:'sinusoidal',w:50, h:24, color:'#fff5e0', dark:'#d8b890' },
+  // 위험 3종: 통과 불가 + 옆 충돌 시 추락
+  crow:      { safe:false, passThrough:false, speed:2.2, range:120, pattern:'horizontal',w:46, h:24, color:'#1a1a22', dark:'#0a0a12' },
+  eagle:     { safe:false, passThrough:false, speed:2.8, range:140, pattern:'dive',      w:54, h:26, color:'#5a3820', dark:'#2a1810' },
+  albatross: { safe:false, passThrough:false, speed:3.4, range:180, pattern:'arc',       w:62, h:24, color:'#e8e4d8', dark:'#a0a098' },
+  // 특수: 통과 불가 + 옆 충돌 무해
+  goose:     { safe:true,  passThrough:false, speed:1.0, range:80,  pattern:'horizontal',w:48, h:22, color:'#d8d0b8', dark:'#705838' },
+};
 
 // ============== 묘종 정의 (v10f-2 추가) ==============
 const breeds = [
@@ -127,6 +144,14 @@ const ctx = canvas.getContext('2d');
 let game, cat, platforms, particles;
 let lastGenY;
 let lastPlatformX = W * 0.5;  // 마지막 메인 발판 중심 X (지그재그 배치용)
+let lastPlatformY = 0;        // 마지막 메인 발판 Y (간격 보장용)
+
+// ============== 레벨 디자인 알고리즘 상수 ==============
+const SAFE_VERTICAL_GAP = 180;       // T1 발판 간 절대 최대 수직 간격 (점프 도달 기준)
+const COMFORTABLE_VERTICAL_GAP = 110; // 평균 수직 간격
+const MIN_VERTICAL_GAP = 70;          // 최소 수직 간격 (캐릭터 끼임 방지)
+const MIN_HORIZONTAL_OVERLAP_GAP = 50; // 같은 Y에서 옆 발판과의 X 최소 거리
+const TOWER_SPAWN_RATE = 0.05;        // 빌딩 등장 빈도 (5%)
 
 // ============== 입력 ==============
 const keys = { left:false, right:false };
@@ -234,6 +259,8 @@ function initGame(){
     x:W/2-14, y:H-80, vx:0, vy:0, w:28, h:32,
     onGround:false, onWall:0, facing:1,
     coyoteTimer:0, walljumpLock:0, squash:0,
+    invulnFrames:0,
+    stuckToTower:null,  // 어느 빌딩 옆에 붙어있는지 추적 (객체 또는 null)
   };
   platforms = [];
   particles = [];
@@ -243,52 +270,231 @@ function initGame(){
   platforms.push({type:'building', x:60,  y:H-140, w:80, h:16});
   platforms.push({type:'building', x:240, y:H-200, w:80, h:16});
   platforms.push({type:'building', x:100, y:H-280, w:70, h:16});
-  platforms.push({type:'bird',     x:250, y:H-360, w:50, h:22, vx:1.2, origX:250, range:60, flap:0});
+  // 긴 빌딩 샘플 (튜토리얼)
+  platforms.push({type:'tower', x:280, y:H-450, w:38, h:140, variant:0});
+  // 안전 새 (비둘기) 샘플
+  platforms.push({
+    type:'bird', species:'pigeon', x:120, y:H-380, w:30, h:20,
+    vx:0.6, vy:0, origX:120, origY:H-380,
+    range:50, pattern:'micro', flap:0, time:0,
+  });
 
   lastGenY = H-380;
   lastPlatformX = W * 0.5;  // 지그재그 배치 추적용
+  lastPlatformY = H - 30;   // 지면 Y
   generateUpTo(-3000);
 }
 
-// ============== 절차적 생성 ==============
+// ============== 절차적 생성 (v10g-2 재설계) ==============
 function generateUpTo(targetY){
   while(lastGenY > targetY){
-    spawnAt(lastGenY);
     const height = (H-30) - lastGenY;
-    const baseGap = 75;
-    const variance = 35;
-    const difficultyGap = Math.min(50, height/250);
-    lastGenY -= baseGap + Math.random()*variance + difficultyGap;
+
+    // 1. 메인 발판 spawn (점프 거리 안전 간격 보장)
+    spawnMainPlatform(lastGenY, height);
+
+    // 1-1. 비행기 장애물 (T3+, 8% 확률)
+    if(height > 4500 && Math.random() < 0.08){
+      const dir = Math.random()<0.5 ? 1 : -1;
+      platforms.push({
+        type:'plane',
+        x: dir>0 ? -60 : W+60,
+        y: lastGenY - 20,
+        w:64, h:22,
+        vx: dir * (1.2 + Math.random()*1.2 + height/6000),
+      });
+    }
+
+    // 1-2. 새 별도 spawn — 메인 발판 사이 보너스 옵션
+    //      (발판 대체가 아니라 *추가* 등장. 점프 궤적 위에 가끔 끼어들어 가속·고득점)
+    trySpawnBonusBird(lastGenY, height);
+
+    // 2. T2+ 큰 간격일 때 보조 오브젝트 끼워넣기
+    //    (메인 다음 메인 사이가 SAFE_VERTICAL_GAP보다 넓을 가능성 → 미리 채움)
+
+    // 3. 빌딩(tower) 별도 spawn 시도
+    if(height < 1500 && Math.random() < TOWER_SPAWN_RATE){
+      trySpawnTower(lastGenY, height);
+    }
+
+    // 4. 다음 spawn Y 계산
+    let baseGap, variance, difficultyGap;
+    if(height < 1500){
+      baseGap = 90;
+      variance = 50;
+      difficultyGap = 0;
+    } else if(height < 4000){
+      baseGap = 95;
+      variance = 60;
+      difficultyGap = Math.min(20, (height-1500)/100);
+    } else {
+      baseGap = 100;
+      variance = 70;
+      difficultyGap = Math.min(40, (height-4000)/100);
+    }
+
+    let nextGap = baseGap + Math.random()*variance + difficultyGap;
+    if(height < 1500) nextGap = Math.min(nextGap, SAFE_VERTICAL_GAP - 10);
+    nextGap = Math.max(nextGap, MIN_VERTICAL_GAP);
+
+    // T2+ 큰 간격이면 사이에 보조 오브젝트 끼워넣기
+    if(nextGap > SAFE_VERTICAL_GAP && height >= 1500){
+      const midY = lastGenY - nextGap / 2;
+      spawnHelperObject(midY, height);
+    }
+
+    lastGenY -= nextGap;
   }
 }
 
-function spawnAt(y){
-  const height = (H-30) - y;
-  const r = Math.random();
+// ============== 메인 발판 spawn (새 제외 — 새는 별도 spawn) ==============
+function spawnMainPlatform(y, height){
+  const w = 60 + Math.random()*40;
+  const x = pickPlatformX(w);
 
-  // 비행기 장애물 (높이 1500+)
-  if(height > 1500 && Math.random() < 0.08){
-    const dir = Math.random()<0.5 ? 1 : -1;
-    platforms.push({
-      type:'plane',
-      x: dir>0 ? -60 : W+60,
-      y: y - 20,
-      w:64, h:22,
-      vx: dir * (1.2 + Math.random()*1.2 + height/6000),
-    });
+  // 끼임 방지
+  if(Math.abs(y - lastPlatformY) < MIN_VERTICAL_GAP &&
+     Math.abs((x + w*0.5) - lastPlatformX) < MIN_HORIZONTAL_OVERLAP_GAP){
+    return;
   }
 
-  // 메인 발판
-  const w = 60 + Math.random()*40;
+  lastPlatformX = x + w * 0.5;
+  lastPlatformY = y;
 
-  // 지그재그 배치: 이전 발판 X 기준, 반대편에 우선 (점프 궤적과 머리 박힘 방지)
-  // - 65% 확률로 반대편 (지그재그 메인)
-  // - 35% 확률로 같은 쪽 (단조로움 방지, 자연스러운 변주)
-  const MIN_X_DIST = 70;          // 이전 발판과의 최소 X 거리 (중심 기준)
+  // 메인 발판은 옥상 발판 또는 구름만 (새는 별도 spawn에서)
+  const r = Math.random();
+  let type;
+  if(height < 1500){
+    type = 'building';  // T1: 옥상 발판만 (안정적)
+  } else if(height < 4000){
+    type = r < 0.55 ? 'cloud' : 'building';
+  } else if(height < 8000){
+    type = r < 0.7 ? 'cloud' : 'building';
+  } else {
+    type = r < 0.6 ? 'cloud' : 'building';
+  }
+
+  if(type === 'cloud'){
+    platforms.push({type:'cloud', x, y, w:80, h:20, used:false});
+  } else {
+    platforms.push({type:'building', x, y, w, h:16});
+  }
+}
+
+// ============== 새 보너스 spawn (메인 발판과 별도) ==============
+function trySpawnBonusBird(y, height){
+  // 고도별 새 등장 빈도 — T1은 자주, T3+는 더 자주 (위험 요소 늘어나니까 보상도 늘어남)
+  let spawnRate;
+  if(height < 1500)      spawnRate = 0.55;  // T1: 55% — 자주 등장 (안전종)
+  else if(height < 4000) spawnRate = 0.65;  // T2: 65%
+  else if(height < 8000) spawnRate = 0.70;  // T3: 70% (위험종 위주)
+  else                    spawnRate = 0.75; // T4+: 75%
+
+  if(Math.random() > spawnRate) return;
+
+  const species = pickBirdSpecies(height);
+  const def = BIRD_SPECIES[species];
+
+  // 새 X 위치 — 메인 발판 X와 다른 위치 우선 (점프 궤적 위에 끼어들기)
+  const w = def.w;
+  let x;
+  let attempts = 0;
+  do {
+    x = 8 + Math.random() * (W - 16 - w);
+    attempts++;
+    if(attempts > 4) break;
+  } while(Math.abs((x + w*0.5) - lastPlatformX) < 40);  // 메인 발판 바로 위는 피함
+
+  // 새 Y 위치 — 메인 발판보다 약간 위 (점프 중간 지점)
+  // T1: 발판보다 50~80px 위 / T3+: 더 다양한 높이
+  const yOffset = 50 + Math.random() * 50;
+  const birdY = y - yOffset;
+
+  platforms.push({
+    type:'bird', species, x, y:birdY, w:def.w, h:def.h,
+    vx:(Math.random()<0.5?-1:1)*def.speed,
+    vy:0, origX:x, origY:birdY,
+    range:def.range, pattern:def.pattern, flap:0, time:0,
+  });
+}
+
+// ============== 빌딩(tower) 별도 spawn — 메인 발판과 분리 ==============
+function trySpawnTower(y, height){
+  const towerW = 36 + Math.random()*8;
+  const towerH = 110 + Math.random()*70;
+
+  // 메인 발판과 X로 떨어뜨림 — 빌딩은 가장자리에 배치
+  // 좌측 또는 우측 끝쪽 우선
+  const side = Math.random() < 0.5 ? 'left' : 'right';
+  let towerX;
+  if(side === 'left'){
+    towerX = 8 + Math.random() * 30;
+  } else {
+    towerX = W - 8 - towerW - Math.random() * 30;
+  }
+
+  // 메인 발판과 X 겹침 검사 (마지막 메인 발판 중심 기준)
+  if(Math.abs((towerX + towerW*0.5) - lastPlatformX) < 80){
+    return; // 너무 가까움 — 빌딩 spawn 취소 (이번 회는 패스)
+  }
+
+  // 빌딩 옥상 Y는 메인 발판 Y보다 살짝 위
+  const towerTopY = y - 30 - Math.random() * 40;
+
+  const variant = Math.floor(Math.random()*3);
+  platforms.push({
+    type:'tower',
+    x:towerX, y:towerTopY,
+    w:towerW, h:towerH,
+    variant,
+  });
+
+  // 빌딩 옆에 안전한 옥상 발판 동반 — 벽타기 못하는 플레이어를 위한 우회로
+  // (빌딩이 좌측이면 발판은 우측 가까이, 그 반대)
+  const companionW = 60 + Math.random()*20;
+  let companionX;
+  if(side === 'left'){
+    companionX = towerX + towerW + 20 + Math.random() * 30;
+  } else {
+    companionX = towerX - companionW - 20 - Math.random() * 30;
+  }
+  companionX = Math.max(8, Math.min(W - 8 - companionW, companionX));
+
+  // 동반 발판 Y는 빌딩 옥상과 비슷한 높이
+  const companionY = towerTopY + Math.random() * 20;
+  platforms.push({type:'building', x:companionX, y:companionY, w:companionW, h:16});
+}
+
+// ============== 보조 오브젝트 (간격 큰 곳에 끼워넣기) ==============
+function spawnHelperObject(y, height){
+  const w = 80;
+  const x = 8 + Math.random() * (W - 16 - w);
+  if(Math.abs((x + w*0.5) - lastPlatformX) < 60){
+    return;
+  }
+  // T2+ 큰 간격: 새 또는 구름. 새 비중 ↑ (가속 옵션)
+  if(Math.random() < 0.45){
+    // 안전한 구름
+    platforms.push({type:'cloud', x, y, w, h:20, used:false});
+  } else {
+    // 안전 새 (가속 보너스)
+    const species = (height < 4000) ? 'pigeon' : (height < 8000 ? 'seagull' : 'pelican');
+    const def = BIRD_SPECIES[species];
+    platforms.push({
+      type:'bird', species, x, y, w:def.w, h:def.h,
+      vx:(Math.random()<0.5?-1:1)*def.speed,
+      vy:0, origX:x, origY:y,
+      range:def.range, pattern:def.pattern, flap:0, time:0,
+    });
+  }
+}
+
+// ============== 발판 X 위치 결정 (지그재그) ==============
+function pickPlatformX(w){
   const lastCenterX = lastPlatformX;
   const isLeftSide = lastCenterX < W * 0.5;
   const goOpposite = Math.random() < 0.65;
-  const targetSide = goOpposite ? !isLeftSide : isLeftSide;  // true=좌, false=우
+  const targetSide = goOpposite ? !isLeftSide : isLeftSide;
 
   let x;
   let attempts = 0;
@@ -300,32 +506,32 @@ function spawnAt(y){
     }
     attempts++;
     if(attempts > 6) break;
-  } while(Math.abs((x + w * 0.5) - lastCenterX) < MIN_X_DIST);
+  } while(Math.abs((x + w * 0.5) - lastCenterX) < 70);
 
-  x = Math.max(8, Math.min(W - 8 - w, x));
-  lastPlatformX = x + w * 0.5;
+  return Math.max(8, Math.min(W - 8 - w, x));
+}
 
-  let type;
+function spawnAt(y){
+  // (구) spawnAt — 호환성 유지용 (호출되지 않음)
+  const height = (H-30) - y;
+  spawnMainPlatform(y, height);
+}
+
+// ============== 새 종 결정 (고도별) ==============
+function pickBirdSpecies(height){
+  const r = Math.random();
   if(height < 1500){
-    type = r<0.85 ? 'building' : 'bird';
+    // T1: 안전종만 (작은 비둘기 위주)
+    return r < 0.6 ? 'pigeon' : (r < 0.9 ? 'seagull' : 'pelican');
   } else if(height < 4000){
-    type = r<0.5 ? 'cloud' : (r<0.85 ? 'building' : 'bird');
+    // T2: 안전 위주, 가끔 까마귀
+    return r < 0.3 ? 'seagull' : (r < 0.6 ? 'pelican' : (r < 0.85 ? 'goose' : 'crow'));
   } else if(height < 8000){
-    type = r<0.65 ? 'cloud' : (r<0.9 ? 'building' : 'bird');
+    // T3: 위험 본격 등장
+    return r < 0.25 ? 'pelican' : (r < 0.5 ? 'crow' : (r < 0.75 ? 'eagle' : 'goose'));
   } else {
-    type = r<0.55 ? 'cloud' : (r<0.85 ? 'building' : 'bird');
-  }
-
-  if(type==='bird'){
-    platforms.push({
-      type:'bird', x, y, w:50, h:22,
-      vx:(Math.random()<0.5?-1:1)*(1+Math.random()*1.2),
-      origX:x, range:50+Math.random()*50, flap:0,
-    });
-  } else if(type==='cloud'){
-    platforms.push({type:'cloud', x, y, w:80, h:20, used:false});
-  } else {
-    platforms.push({type:'building', x, y, w, h:16});
+    // T4+: 가장 위험
+    return r < 0.4 ? 'eagle' : (r < 0.75 ? 'albatross' : 'crow');
   }
 }
 
@@ -357,7 +563,7 @@ function handleCollision(p){
 
   if(p.type==='plane'){
     if(overlapX && overlapY){
-      // 위에서 밟기 → 슈퍼 점프
+      // 위에서 밟기 → 슈퍼 점프 (이건 그대로)
       if(cat.vy>0 && cat.y+cat.h-cat.vy <= p.y+4){
         cat.y = p.y - cat.h;
         cat.vy = SUPER_JUMP_VEL;
@@ -371,15 +577,54 @@ function handleCollision(p){
           });
         }
       } else {
-        // 측면/머리 충돌 → 추락
-        cat.vy = Math.max(cat.vy, 4);
-        cat.vx += (cat.x < p.x+p.w/2 ? -3 : 3);
-        for(let i=0;i<6;i++){
-          particles.push({
-            x:cat.x+cat.w/2, y:cat.y+cat.h/2,
-            vx:(Math.random()-0.5)*5, vy:(Math.random()-0.5)*3,
-            life:20, color:'#ff6655', size:2
-          });
+        // 측면/머리 충돌 → 즉시 사망 (비행기·헬기는 맹금류와 다르게 무자비)
+        if(cat.invulnFrames <= 0){
+          gameOver();
+        }
+      }
+    }
+    return;
+  }
+
+  // tower (긴 빌딩) — 옆면 벽타기 전용, 위쪽 착지 시 자동 점프
+  if(p.type==='tower'){
+    if(overlapX && overlapY){
+      // 위에서 착지 (vy>=0이고 위쪽 표면에 닿음)
+      if(cat.vy>=0 && cat.y+cat.h-cat.vy <= p.y+2){
+        cat.y = p.y - cat.h;
+        cat.onGround = true;
+        cat.vy = JUMP_VEL;  // 자동 점프
+        cat.squash = 4;
+        vibe(6);
+      } else if(cat.vy<0 && cat.y-cat.vy >= p.y+p.h-2){
+        // 머리 박음
+        cat.y = p.y + p.h;
+        cat.vy = Math.abs(cat.vy)*0.3 + 1;
+      } else {
+        // 옆면 충돌 — 캐릭터 중심과 빌딩 중심 X 비교로 어느 쪽 면인지 판정
+        const catCenterX = cat.x + cat.w*0.5;
+        const towerCenterX = p.x + p.w*0.5;
+        if(catCenterX < towerCenterX){
+          // 캐릭터가 빌딩 *좌측*에 있음 — 캐릭터의 우측 가장자리가 빌딩 좌측면에 닿음
+          // → 캐릭터가 우측 벽에 붙음 (onWall = 1)
+          cat.x = p.x - cat.w;
+          if(cat.vx > 0) cat.vx = 0;
+          // 즉시 벽 인식 (vy 조건 완화 — 가장자리와 동일한 즉각 반응)
+          if(!cat.onGround){
+            cat.onWall = 1;
+            cat.stuckToTower = p;
+            // 위로 빠르게 올라가는 중이면 vy를 살짝 줄여 즉시 슬라이드 시작
+            if(cat.vy < -3) cat.vy = -3;
+          }
+        } else {
+          // 캐릭터가 빌딩 *우측*에 있음 — 좌측 벽 (onWall = -1)
+          cat.x = p.x + p.w;
+          if(cat.vx < 0) cat.vx = 0;
+          if(!cat.onGround){
+            cat.onWall = -1;
+            cat.stuckToTower = p;
+            if(cat.vy < -3) cat.vy = -3;
+          }
         }
       }
     }
@@ -393,25 +638,65 @@ function handleCollision(p){
       cat.onGround = true;
 
       if(p.type==='bird'){
-        cat.vy = SUPER_JUMP_VEL*0.85;
+        const def = BIRD_SPECIES[p.species] || BIRD_SPECIES.sparrow;
+        // 위에서 밟음 = 슈퍼점프 (위험종일수록 강하게)
+        const jumpStrength = def.safe ? 0.85 : 1.0;
+        cat.vy = SUPER_JUMP_VEL * jumpStrength;
         cat.squash = 7;
+        vibe(def.safe ? 10 : 20);
         for(let i=0;i<6;i++){
           particles.push({
             x:p.x+p.w/2, y:p.y+8,
             vx:(Math.random()-0.5)*4, vy:-Math.random()*3,
-            life:24, color:'#ffe066', size:2
+            life:24, color:def.safe ? '#ffe066' : '#ff8050', size:2
           });
         }
       } else {
-        // 옵션 X: 일반 발판 착지 → 즉시 자동 점프
         cat.vy = JUMP_VEL;
         cat.squash = 4;
         vibe(6);
       }
     } else if(cat.vy<0 && cat.y-cat.vy >= p.y+p.h-2){
-      // 머리 부딪힘 → 점프 끊고 추락
-      cat.y = p.y + p.h;
-      cat.vy = Math.abs(cat.vy)*0.3 + 1;
+      // 머리 박음
+      if(p.type==='bird'){
+        const def = BIRD_SPECIES[p.species] || BIRD_SPECIES.pigeon;
+        if(def.passThrough){
+          // 안전 새 (비·갈·펠) — 통과 가능, 머리로 뚫음 (충돌 무시)
+          return;
+        } else if(!def.safe){
+          // 위험 새 머리 — 튕김 (즉사 X). 발판/새/벽으로 복귀 가능
+          knockbackFromBird(p, 'top');
+          return;
+        }
+        // 기러기 등 통과 불가 + 무해 — 그냥 막힘
+        cat.y = p.y + p.h;
+        cat.vy = Math.abs(cat.vy)*0.3 + 1;
+      } else {
+        // 일반 발판 머리 박음
+        cat.y = p.y + p.h;
+        cat.vy = Math.abs(cat.vy)*0.3 + 1;
+      }
+    } else {
+      // 옆면 충돌 — 새 species별 처리
+      if(p.type==='bird'){
+        const def = BIRD_SPECIES[p.species] || BIRD_SPECIES.pigeon;
+        if(def.passThrough){
+          // 안전 새 (비·갈·펠) — 옆에서도 그냥 통과
+          return;
+        } else if(!def.safe){
+          // 위험 새 옆 충돌 — 튕김 (즉사 X)
+          knockbackFromBird(p, 'side');
+          return;
+        }
+        // 기러기 — 통과 불가하지만 무해. 그냥 부드럽게 막힘
+        if(cat.vx > 0 && cat.x < p.x){
+          cat.x = p.x - cat.w;
+          cat.vx = 0;
+        } else if(cat.vx < 0 && cat.x > p.x){
+          cat.x = p.x + p.w;
+          cat.vx = 0;
+        }
+      }
     }
   }
 }
@@ -441,26 +726,7 @@ function update(){
   cat.vx = Math.max(-MAX_VX, Math.min(MAX_VX, cat.vx));
   if(Math.abs(cat.vx)>0.2) cat.facing = cat.vx>0 ? 1 : -1;
 
-  // 점프 (PC 디버그용 Space만 유지 — 발판 자동 점프는 충돌 처리에서)
-  if(jumpRequested){
-    if(cat.onWall!==0){
-      cat.vy = WALL_JUMP_Y;
-      cat.vx = -cat.onWall * WALL_JUMP_X;
-      cat.onWall = 0;
-      cat.walljumpLock = 18;  // 벽점프 후 입력 잠금 (약 0.3초) — 손가락 추적이 즉시 벽으로 다시 끌고 가는 것 방지
-      cat.squash = 5;
-      vibe(12);
-    } else if(cat.onGround || cat.coyoteTimer>0){
-      cat.vy = JUMP_VEL;
-      cat.onGround = false;
-      cat.coyoteTimer = 0;
-      cat.squash = 4;
-      vibe(8);
-    }
-  }
-  jumpRequested = false;
-
-  // 중력 (정상)
+  // 중력 적용 (벽 슬라이드 시 낙하 속도 제한)
   cat.vy += GRAVITY;
   if(cat.onWall!==0 && cat.vy>WALL_SLIDE_VY) cat.vy = WALL_SLIDE_VY;
   cat.vy = Math.min(cat.vy, 18);
@@ -473,11 +739,17 @@ function update(){
   if(cat.x <= 0){
     cat.x = 0;
     if(cat.vx<0) cat.vx = 0;
-    if(cat.vy>-3 && !cat.onGround) cat.onWall = -1;
+    if(!cat.onGround){
+      cat.onWall = -1;
+      if(cat.vy < -3) cat.vy = -3;
+    }
   } else if(cat.x+cat.w >= W){
     cat.x = W - cat.w;
     if(cat.vx>0) cat.vx = 0;
-    if(cat.vy>-3 && !cat.onGround) cat.onWall = 1;
+    if(!cat.onGround){
+      cat.onWall = 1;
+      if(cat.vy < -3) cat.vy = -3;
+    }
   }
 
   // 충돌 직전에 onGround 리셋, 가운데 있으면 onWall도 리셋
@@ -485,10 +757,64 @@ function update(){
   cat.onGround = false;
   if(cat.x>0.5 && cat.x+cat.w<W-0.5) cat.onWall = 0;
   if(cat.coyoteTimer>0) cat.coyoteTimer--;
+  if(cat.invulnFrames>0) cat.invulnFrames--;
+
+  // 빌딩 벽 부착 유지 — 한 번 붙으면 손가락 떼도 위치 고정 (가장자리 벽처럼)
+  // 단 점프하거나 빌딩 위/아래로 벗어나면 해제
+  if(cat.stuckToTower){
+    const p = cat.stuckToTower;
+    // 빌딩이 화면에서 벗어났거나 캐릭터가 위/아래로 빌딩 범위 벗어남 → 해제
+    const verticallyOverlapping = cat.y + cat.h > p.y && cat.y < p.y + p.h;
+    const towerStillExists = platforms.includes(p);
+    if(!towerStillExists || !verticallyOverlapping || cat.onGround){
+      cat.stuckToTower = null;
+    } else {
+      // 빌딩 옆에 위치 강제 유지 + onWall 유지
+      const catCenterX = cat.x + cat.w*0.5;
+      const towerCenterX = p.x + p.w*0.5;
+      if(catCenterX < towerCenterX){
+        cat.x = p.x - cat.w;
+        cat.onWall = 1;
+      } else {
+        cat.x = p.x + p.w;
+        cat.onWall = -1;
+      }
+      // 조이스틱이 벽 반대 방향으로 강하게 끌면 해제 (의도적 이탈)
+      if(cat.walljumpLock <= 0){
+        if(cat.onWall === 1 && stickVx < -2){
+          // 우측 벽에 붙어있는데 좌측으로 강하게 끌림 → 해제
+          cat.stuckToTower = null;
+        } else if(cat.onWall === -1 && stickVx > 2){
+          cat.stuckToTower = null;
+        }
+      }
+    }
+  }
 
   for(const p of platforms) handleCollision(p);
 
   if(wasOnGround && !cat.onGround) cat.coyoteTimer = 5;
+
+  // 점프 요청 처리 — 충돌 처리 후에 실행해야 onWall 값이 정확함
+  // (모바일에서 터치 직후 벽점프가 안 되던 버그 수정)
+  if(jumpRequested){
+    if(cat.onWall!==0){
+      cat.vy = WALL_JUMP_Y;
+      cat.vx = -cat.onWall * WALL_JUMP_X;
+      cat.onWall = 0;
+      cat.stuckToTower = null;  // 벽점프 시 부착 해제
+      cat.walljumpLock = 18;
+      cat.squash = 5;
+      vibe(12);
+    } else if(cat.onGround || cat.coyoteTimer>0){
+      cat.vy = JUMP_VEL;
+      cat.onGround = false;
+      cat.coyoteTimer = 0;
+      cat.squash = 4;
+      vibe(8);
+    }
+  }
+  jumpRequested = false;
 
   // 카메라 (위로만)
   const targetCamY = cat.y - H*0.45;
@@ -509,9 +835,35 @@ function update(){
   // 동적 객체 이동
   for(const p of platforms){
     if(p.type==='bird'){
-      p.x += p.vx;
-      if(p.x < p.origX-p.range) p.vx = Math.abs(p.vx);
-      if(p.x > p.origX+p.range) p.vx = -Math.abs(p.vx);
+      p.time = (p.time||0) + 1;
+      const pattern = p.pattern || 'horizontal';
+      if(pattern === 'micro'){
+        // 참새: 좌우 미세 흔들림
+        p.x = p.origX + Math.sin(p.time * 0.05) * p.range * 0.3;
+      } else if(pattern === 'horizontal'){
+        // 비둘기, 까마귀, 기러기: 좌우 왕복
+        p.x += p.vx;
+        if(p.x < p.origX-p.range) p.vx = Math.abs(p.vx);
+        if(p.x > p.origX+p.range) p.vx = -Math.abs(p.vx);
+      } else if(pattern === 'sinusoidal'){
+        // 갈매기: 사선 (좌우 + 상하 살짝)
+        p.x += p.vx;
+        if(p.x < p.origX-p.range) p.vx = Math.abs(p.vx);
+        if(p.x > p.origX+p.range) p.vx = -Math.abs(p.vx);
+        p.y = p.origY + Math.sin(p.time * 0.04) * 15;
+      } else if(pattern === 'dive'){
+        // 독수리: 급강하·급상승
+        p.x += p.vx;
+        if(p.x < p.origX-p.range) p.vx = Math.abs(p.vx);
+        if(p.x > p.origX+p.range) p.vx = -Math.abs(p.vx);
+        p.y = p.origY + Math.sin(p.time * 0.06) * 35;
+      } else if(pattern === 'arc'){
+        // 알바트로스: 큰 호
+        p.x += p.vx;
+        if(p.x < p.origX-p.range) p.vx = Math.abs(p.vx);
+        if(p.x > p.origX+p.range) p.vx = -Math.abs(p.vx);
+        p.y = p.origY + Math.sin(p.time * 0.025) * 25;
+      }
       p.flap = (p.flap + 0.2) % (Math.PI*2);
     } else if(p.type==='plane'){
       p.x += p.vx;
@@ -534,6 +886,48 @@ function update(){
   // UI
   document.getElementById('score').textContent = game.score + ' m';
   document.getElementById('best').textContent  = 'BEST ' + Math.max(game.score, game.best) + ' m';
+}
+
+// ============== 맹금류 충돌 시 튕김 효과 (즉사 X) ==============
+// 무적 시간 두어 연속 충돌 방지 + 시각 효과 + 햅틱
+function knockbackFromBird(bird, hitSide){
+  // 무적 중이면 무시
+  if(cat.invulnFrames > 0) return;
+
+  const catCenterX = cat.x + cat.w*0.5;
+  const birdCenterX = bird.x + bird.w*0.5;
+  const dx = catCenterX - birdCenterX;
+  const dy = (cat.y + cat.h*0.5) - (bird.y + bird.h*0.5);
+
+  // 반대 방향으로 튕김
+  if(hitSide === 'top'){
+    // 머리 충돌 — 위에서 부딪힘. 아래쪽 + 약간 옆으로
+    cat.vy = Math.max(cat.vy, 6);  // 강제 하강
+    cat.vx = (dx >= 0 ? 1 : -1) * 5;  // 반대 옆으로
+  } else {
+    // 옆 충돌 — 옆쪽으로 강하게 + 약간 위로 띄움
+    cat.vx = (dx >= 0 ? 1 : -1) * 7;
+    cat.vy = -3;  // 살짝 위로 (복귀 가능성)
+  }
+
+  // 무적 + 시각 효과
+  cat.invulnFrames = 40;  // 약 0.67초 무적
+  cat.walljumpLock = 12;  // 잠깐 입력 잠금 (튕김 안정화)
+  cat.squash = 8;
+  vibe([20, 30, 40]);
+
+  // 충격 파티클
+  for(let i=0; i<10; i++){
+    particles.push({
+      x: cat.x + cat.w*0.5,
+      y: cat.y + cat.h*0.5,
+      vx: (Math.random()-0.5) * 6,
+      vy: (Math.random()-0.5) * 6 - 1,
+      life: 22,
+      color: '#ff6060',
+      size: 3,
+    });
+  }
 }
 
 function gameOver(){
@@ -609,6 +1003,151 @@ function render(){
   ctx.fillRect(W-3,0,3,H);
 }
 
+// ============== 새 그리기 (species별) ==============
+function drawBird(p){
+  const def = BIRD_SPECIES[p.species] || BIRD_SPECIES.sparrow;
+  const flap = Math.sin(p.flap||0)*4;
+  const dir = p.vx >= 0 ? 1 : -1;
+
+  // 몸통
+  ctx.fillStyle = def.color;
+  ctx.fillRect(p.x+8, p.y+8, p.w-16, p.h-10);
+  // 음영
+  ctx.fillStyle = def.dark;
+  ctx.fillRect(p.x+8, p.y+p.h-6, p.w-16, 2);
+
+  // 머리
+  const headX = dir>0 ? p.x+p.w-14 : p.x+4;
+  ctx.fillStyle = def.color;
+  ctx.fillRect(headX, p.y+6, 10, 8);
+
+  // 부리 — 펠리컨은 매우 큰 부리, 위험 새는 큰 부리, 안전 새는 작은 부리
+  if(p.species === 'pelican'){
+    // 펠리컨 — 길고 큰 노란 부리 (특징)
+    ctx.fillStyle = '#ffaa44';
+    if(dir>0) ctx.fillRect(p.x+p.w-2, p.y+9, 10, 5);
+    else      ctx.fillRect(p.x-7, p.y+9, 10, 5);
+    // 부리 음영
+    ctx.fillStyle = '#cc7720';
+    if(dir>0) ctx.fillRect(p.x+p.w-2, p.y+13, 10, 1);
+    else      ctx.fillRect(p.x-7, p.y+13, 10, 1);
+  } else if(!def.safe){
+    ctx.fillStyle = '#ff6020';
+    if(dir>0) ctx.fillRect(p.x+p.w-2, p.y+9, 6, 4);
+    else      ctx.fillRect(p.x-3, p.y+9, 6, 4);
+  } else {
+    ctx.fillStyle = '#ffaa44';
+    if(dir>0) ctx.fillRect(p.x+p.w-4, p.y+9, 5, 3);
+    else      ctx.fillRect(p.x-1, p.y+9, 5, 3);
+  }
+
+  // 눈 — 위험 새는 빨간 눈
+  ctx.fillStyle = def.safe ? '#000' : '#ff3030';
+  ctx.fillRect(headX+(dir>0?6:2), p.y+8, 2, 2);
+
+  // 날개 (펄럭임)
+  ctx.strokeStyle = def.dark; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(p.x+12, p.y+10);
+  ctx.lineTo(p.x+p.w/2-4, p.y-flap);
+  ctx.lineTo(p.x+p.w/2, p.y+10);
+  ctx.moveTo(p.x+p.w-12, p.y+10);
+  ctx.lineTo(p.x+p.w/2+4, p.y-flap);
+  ctx.lineTo(p.x+p.w/2, p.y+10);
+  ctx.stroke();
+
+  // 위험 새는 머리 위에 *위험 마크* 작은 빨간 점
+  if(!def.safe){
+    ctx.fillStyle = 'rgba(255,80,60,0.7)';
+    ctx.fillRect(headX+3, p.y+2, 4, 2);
+  }
+
+  // 기러기 편대 표시 — 작은 V자 마크 (한 마리만 그리지만 표시상)
+  if(p.species === 'goose'){
+    ctx.fillStyle = '#704030';
+    ctx.fillRect(p.x+p.w/2-1, p.y+2, 2, 2);
+  }
+}
+
+// ============== 긴 빌딩 그리기 (variant 0/1/2) ==============
+function drawTower(p){
+  const variant = p.variant || 0;
+  if(variant === 0){
+    // 변형 0: 직사각형 (기본) - 회색 빌딩
+    ctx.fillStyle = '#3a3a4a';
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.fillStyle = '#5a5a6a';
+    ctx.fillRect(p.x, p.y, p.w, 4);  // 옥상 (밝게)
+    ctx.fillStyle = '#2a2a36';
+    ctx.fillRect(p.x, p.y, 2, p.h);  // 좌측 음영
+    ctx.fillStyle = '#4a4a5a';
+    ctx.fillRect(p.x+p.w-2, p.y, 2, p.h);  // 우측 하이라이트
+    // 창문 격자 (노란 불빛 — 도시 야경 느낌)
+    ctx.fillStyle = '#ffd66e';
+    for(let dy=10; dy<p.h-6; dy+=14){
+      for(let dx=4; dx<p.w-4; dx+=10){
+        ctx.fillRect(p.x+dx, p.y+dy, 4, 5);
+      }
+    }
+  } else if(variant === 1){
+    // 변형 1: 계단형 (위로 갈수록 좁아짐) - 회색
+    const segments = 3;
+    const segH = p.h / segments;
+    for(let i=0; i<segments; i++){
+      const segW = p.w * (1 - i*0.15);
+      const segX = p.x + (p.w - segW) / 2;
+      ctx.fillStyle = '#3a3a4a';
+      ctx.fillRect(segX, p.y + i*segH, segW, segH);
+      ctx.fillStyle = '#5a5a6a';
+      ctx.fillRect(segX, p.y + i*segH, segW, 3);
+      // 좌측 음영
+      ctx.fillStyle = '#2a2a36';
+      ctx.fillRect(segX, p.y + i*segH, 1, segH);
+      // 창문
+      ctx.fillStyle = '#ffd66e';
+      for(let dx=4; dx<segW-4; dx+=10){
+        ctx.fillRect(segX+dx, p.y + i*segH + 6, 4, 5);
+      }
+    }
+  } else {
+    // 변형 2: 광고판 옆 - 회색
+    ctx.fillStyle = '#3a3a4a';
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.fillStyle = '#5a5a6a';
+    ctx.fillRect(p.x, p.y, p.w, 4);
+    ctx.fillStyle = '#2a2a36';
+    ctx.fillRect(p.x, p.y, 2, p.h);
+    ctx.fillStyle = '#4a4a5a';
+    ctx.fillRect(p.x+p.w-2, p.y, 2, p.h);
+    // 창문
+    ctx.fillStyle = '#ffd66e';
+    for(let dy=10; dy<p.h-6; dy+=14){
+      for(let dx=4; dx<p.w-4; dx+=10){
+        ctx.fillRect(p.x+dx, p.y+dy, 4, 5);
+      }
+    }
+    // 광고판 (왼쪽 또는 오른쪽 측면)
+    const side = (Math.floor(p.x) % 2 === 0) ? 'left' : 'right';
+    ctx.fillStyle = '#ffd84a';
+    if(side === 'left'){
+      ctx.fillRect(p.x-8, p.y+20, 8, 24);
+    } else {
+      ctx.fillRect(p.x+p.w, p.y+20, 8, 24);
+    }
+    // 광고판 텍스트 느낌 (3 줄 작은 막대)
+    ctx.fillStyle = '#a00';
+    if(side === 'left'){
+      ctx.fillRect(p.x-7, p.y+24, 6, 1);
+      ctx.fillRect(p.x-7, p.y+30, 5, 1);
+      ctx.fillRect(p.x-7, p.y+36, 6, 1);
+    } else {
+      ctx.fillRect(p.x+p.w+1, p.y+24, 6, 1);
+      ctx.fillRect(p.x+p.w+1, p.y+30, 5, 1);
+      ctx.fillRect(p.x+p.w+1, p.y+36, 6, 1);
+    }
+  }
+}
+
 function drawPlatform(p){
   if(p.type==='ground'){
     ctx.fillStyle='#3a2818'; ctx.fillRect(p.x,p.y,p.w,p.h);
@@ -620,6 +1159,8 @@ function drawPlatform(p){
     ctx.fillStyle='#7a5536'; ctx.fillRect(p.x,p.y,p.w,3);
     ctx.fillStyle='#ffd66e';
     for(let i=6;i<p.w-4;i+=12) ctx.fillRect(p.x+i, p.y+6, 5, 5);
+  } else if(p.type==='tower'){
+    drawTower(p);
   } else if(p.type==='cloud'){
     ctx.globalAlpha = p.used ? 0.25 : 0.95;
     ctx.fillStyle='#fff';
@@ -630,25 +1171,7 @@ function drawPlatform(p){
     ctx.fill();
     ctx.globalAlpha = 1;
   } else if(p.type==='bird'){
-    const flap = Math.sin(p.flap||0)*4;
-    ctx.fillStyle='#fff';
-    ctx.fillRect(p.x+12, p.y+8, p.w-24, 8);
-    const headX = p.vx>0 ? p.x+p.w-14 : p.x+4;
-    ctx.fillRect(headX, p.y+6, 10, 8);
-    ctx.fillStyle='#ffaa44';
-    if(p.vx>0) ctx.fillRect(p.x+p.w-4, p.y+9, 5, 3);
-    else        ctx.fillRect(p.x-1,    p.y+9, 5, 3);
-    ctx.fillStyle='#000';
-    ctx.fillRect(headX+(p.vx>0?6:2), p.y+8, 2, 2);
-    ctx.strokeStyle='#bbb'; ctx.lineWidth=2;
-    ctx.beginPath();
-    ctx.moveTo(p.x+12, p.y+10);
-    ctx.lineTo(p.x+p.w/2-4, p.y-flap);
-    ctx.lineTo(p.x+p.w/2,   p.y+10);
-    ctx.moveTo(p.x+p.w-12, p.y+10);
-    ctx.lineTo(p.x+p.w/2+4, p.y-flap);
-    ctx.lineTo(p.x+p.w/2,   p.y+10);
-    ctx.stroke();
+    drawBird(p);
   } else if(p.type==='plane'){
     const dir = p.vx>0 ? 1 : -1;
     ctx.fillStyle='#cc4444';
@@ -683,6 +1206,11 @@ function drawCat(){
   if(squash>0){ sx = 1+squash*0.04; sy = 1-squash*0.05; }
   else if(vy<-3){ sx=0.92; sy=1.08; }
   else if(vy>6){ sx=0.95; sy=1.05; }
+
+  // 무적 중 깜빡임 (4프레임마다 안 보임)
+  if(cat.invulnFrames > 0 && Math.floor(cat.invulnFrames / 4) % 2 === 1){
+    return;  // 이번 프레임은 안 그림
+  }
 
   ctx.save();
   ctx.translate(x+w/2, y+h);
