@@ -18,7 +18,7 @@ permalink: /about/
     <p class="about-desc">1인 개발</p>
 
     <div class="about-content">
-      <p>이커머스 사이트 운영 · 설계</p>
+      <p>뷰티 브랜드 웹 서비스 운영 · 설계</p>
       <p>AI 기반 게임 · 코인 자동매매 프로그램 개발</p>
     </div>
 
