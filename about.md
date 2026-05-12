@@ -15,7 +15,6 @@ permalink: /about/
 <main class="main about-main">
   <section class="about">
     <h1>nninnis</h1>
-    <p class="about-desc">1인 개발</p>
 
     <div class="about-content">
       <p>뷰티 브랜드 웹 서비스 운영 · 설계</p>
