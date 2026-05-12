@@ -15,11 +15,11 @@ permalink: /about/
 <main class="main about-main">
   <section class="about">
     <h1>nninnis</h1>
-    <p class="about-desc">이커머스 운영 · 설계 / 1인 개발</p>
+    <p class="about-desc">1인 개발</p>
 
     <div class="about-content">
-      <p>이커머스 사이트를 운영하고 설계한다. AI를 도구로 쓴다.</p>
-      <p>게임, 코인·주식 자동매매 프로그램을 만든다.</p>
+      <p>이커머스 사이트 운영 · 설계</p>
+      <p>AI 기반 게임 · 코인 자동매매 프로그램 개발</p>
     </div>
 
     <ul class="about-meta">
