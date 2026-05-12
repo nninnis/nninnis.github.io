@@ -161,8 +161,7 @@ a:hover {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 80px 0;
+  padding: 64px 0;
 }
 
 /* Hero */
@@ -421,13 +420,62 @@ a:hover {
   color: var(--black);
 }
 
-/* Painting Star Landing */
-.painting-star-hero {
-  margin-bottom: 48px;
+/* Site Hero */
+.site-hero {
+  margin-bottom: 40px;
 }
 
-.app-store-link {
-  margin-top: 16px;
+.site-hero h1 {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+
+.site-hero p {
+  font-size: 13px;
+  color: var(--gray);
+}
+
+/* Featured Card (Painting Star) */
+.featured-card {
+  border: 1px solid var(--light);
+  border-radius: 8px;
+  padding: 28px 28px 24px;
+  margin-bottom: 56px;
+}
+
+.featured-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gray);
+  margin-bottom: 14px;
+}
+
+.featured-title {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+
+.featured-desc {
+  font-size: 14px;
+  color: var(--gray);
+  margin-bottom: 16px;
+}
+
+.featured-posts {
+  margin-top: 28px;
+  padding-top: 24px;
+  border-top: 1px solid var(--light);
+}
+
+.featured-posts .section-label {
+  margin-bottom: 16px;
 }
 
 .app-store-link a {

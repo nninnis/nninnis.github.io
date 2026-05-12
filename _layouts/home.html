@@ -10,18 +10,23 @@ layout: default
 </header>
 
 <main class="main">
-  <section class="hero painting-star-hero">
-    <h1>Painting Star</h1>
-    <p>색을 섞으며 별을 그리는 퍼즐 게임</p>
+  <section class="site-hero">
+    <h1>nninnis.dev</h1>
+    <p>개발 기록</p>
+  </section>
+
+  {% assign ps_posts = site.posts | where: "category", "painting-star" %}
+  <section class="featured-card">
+    <div class="featured-label">출시작</div>
+    <h2 class="featured-title">Painting Star</h2>
+    <p class="featured-desc">색을 섞으며 별을 그리는 퍼즐 게임</p>
     <div class="app-store-link">
       <a href="https://apps.apple.com/kr/app/painting-star/id6762936757" target="_blank" rel="noopener">App Store &rarr;</a>
     </div>
-  </section>
 
-  <section class="posts">
-    <h2 class="section-label">개발 기록</h2>
-    {% assign ps_posts = site.posts | where: "category", "painting-star" %}
     {% if ps_posts.size > 0 %}
+    <div class="featured-posts">
+      <h3 class="section-label">개발 기록</h3>
       <ul class="post-list">
         {% for post in ps_posts limit: 3 %}
         <li>
@@ -50,8 +55,7 @@ layout: default
         <span class="expand-label">{{ ps_posts.size | minus: 3 }}개 더 보기</span>
       </button>
       {% endif %}
-    {% else %}
-      <p class="empty">...</p>
+    </div>
     {% endif %}
   </section>
 
