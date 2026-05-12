@@ -23,7 +23,7 @@ layout: default
     {% assign ps_posts = site.posts | where: "category", "painting-star" %}
     {% if ps_posts.size > 0 %}
       <ul class="post-list">
-        {% for post in ps_posts %}
+        {% for post in ps_posts limit: 3 %}
         <li>
           <a href="{{ post.url | relative_url }}">
             <span class="post-title">{{ post.title }}</span>
@@ -32,14 +32,87 @@ layout: default
         </li>
         {% endfor %}
       </ul>
+      {% if ps_posts.size > 3 %}
+      <div class="collapsible-list" id="ps-more">
+        <ul class="post-list">
+          {% for post in ps_posts offset: 3 %}
+          <li>
+            <a href="{{ post.url | relative_url }}">
+              <span class="post-title">{{ post.title }}</span>
+              <span class="post-date">{{ post.date | date: "%Y.%m.%d" }}</span>
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      <button class="expand-btn" data-target="ps-more" data-count="{{ ps_posts.size | minus: 3 }}">
+        <svg class="expand-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+        <span class="expand-label">{{ ps_posts.size | minus: 3 }}개 더 보기</span>
+      </button>
+      {% endif %}
     {% else %}
       <p class="empty">...</p>
     {% endif %}
   </section>
 
-  <section class="blog-link">
-    <a href="{{ '/archive/' | relative_url }}" class="dev-blog-link">개발 블로그 &rarr;</a>
+  {% assign blog_posts = site.posts | where_exp: "post", "post.category != 'painting-star'" %}
+  {% if blog_posts.size > 0 %}
+  <section class="posts blog-preview">
+    <h2 class="section-label">개발 블로그</h2>
+    <ul class="post-list">
+      {% for post in blog_posts limit: 5 %}
+      <li>
+        <a href="{{ post.url | relative_url }}">
+          <span class="post-title">{{ post.title }}</span>
+          <span class="post-date">{{ post.date | date: "%Y.%m.%d" }}</span>
+        </a>
+      </li>
+      {% endfor %}
+    </ul>
+    {% if blog_posts.size > 5 %}
+    <div class="collapsible-list" id="blog-more">
+      <ul class="post-list">
+        {% for post in blog_posts offset: 5 %}
+        <li>
+          <a href="{{ post.url | relative_url }}">
+            <span class="post-title">{{ post.title }}</span>
+            <span class="post-date">{{ post.date | date: "%Y.%m.%d" }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    <button class="expand-btn" data-target="blog-more" data-count="{{ blog_posts.size | minus: 5 }}">
+      <svg class="expand-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      <span class="expand-label">{{ blog_posts.size | minus: 5 }}개 더 보기</span>
+    </button>
+    {% endif %}
   </section>
+  {% endif %}
+
+  <section class="blog-link">
+    <a href="{{ '/archive/' | relative_url }}" class="dev-blog-link">전체 아카이브 &rarr;</a>
+  </section>
+
+  <script>
+    document.querySelectorAll('.expand-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var target = document.getElementById(this.dataset.target);
+        var label = this.querySelector('.expand-label');
+        var count = parseInt(this.dataset.count);
+        var isExpanded = target.classList.contains('expanded');
+        if (isExpanded) {
+          target.classList.remove('expanded');
+          label.textContent = count + '개 더 보기';
+          this.classList.remove('expanded');
+        } else {
+          target.classList.add('expanded');
+          label.textContent = '접기';
+          this.classList.add('expanded');
+        }
+      });
+    });
+  </script>
 </main>
 
 <footer class="footer">

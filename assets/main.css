@@ -463,6 +463,52 @@ a:hover {
   color: var(--black);
 }
 
+/* Collapsible list */
+.collapsible-list {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.35s ease;
+}
+
+.collapsible-list.expanded {
+  max-height: 3000px;
+}
+
+.expand-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--gray);
+  padding: 4px 0;
+  font-family: inherit;
+  transition: color 0.2s;
+}
+
+.expand-btn:hover {
+  color: var(--black);
+}
+
+.expand-arrow {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+}
+
+.expand-btn.expanded .expand-arrow {
+  transform: rotate(180deg);
+}
+
+.blog-preview {
+  margin-top: 40px;
+  padding-top: 32px;
+}
+
 /* Archive Page */
 .archive-main {
   justify-content: flex-start;
