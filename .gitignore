@@ -19,6 +19,9 @@ Gemfile.lock
 CLAUDE.md
 .claude/settings.local.json
 
+# Agent Team 회의록 (로컬 기록용)
+_meetings/
+
 # Environment variables & secrets
 .env
 .env.*
