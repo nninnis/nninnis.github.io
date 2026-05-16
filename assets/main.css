@@ -683,3 +683,65 @@ a:hover {
     font-size: 12px;
   }
 }
+
+/* ── Archive Filter Chips ─────────────────────── */
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 32px;
+}
+
+.filter-chip {
+  appearance: none;
+  background: transparent;
+  border: 1px solid var(--light);
+  border-radius: 999px;
+  color: var(--gray);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 6px 14px;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.filter-chip:hover {
+  border-color: var(--gray);
+  color: var(--text);
+}
+
+.filter-chip.is-active {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
+.filter-chip:focus-visible {
+  outline: 2px solid var(--gray);
+  outline-offset: 2px;
+}
+
+.archive-list li.is-hidden {
+  display: none;
+}
+
+.archive-category.is-hidden {
+  display: none;
+}
+
+.archive-empty-state {
+  color: var(--light);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  margin-top: 24px;
+}
+
+@media (max-width: 480px) {
+  .filter-chips {
+    gap: 6px;
+    margin-bottom: 24px;
+  }
+  .filter-chip {
+    font-size: 12px;
+    padding: 5px 12px;
+  }
+}

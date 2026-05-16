@@ -58,5 +58,66 @@
       });
     })();
   </script>
+  <script>
+(function () {
+  function filterByCategory(category) {
+    var items = document.querySelectorAll('.archive-list li');
+
+    // items가 있을 때만 필터링 (early return 제거)
+    if (items.length) {
+      items.forEach(function (li) {
+        if (category === 'all' || li.dataset.category === category) {
+          li.classList.remove('is-hidden');
+        } else {
+          li.classList.add('is-hidden');
+        }
+      });
+    }
+
+    var groups = document.querySelectorAll('.archive-category');
+    var allGroupsHidden = true;
+    if (groups.length) {
+      groups.forEach(function (group) {
+        var visibleItems = group.querySelectorAll('.archive-list li:not(.is-hidden)');
+        if (visibleItems.length === 0) {
+          group.classList.add('is-hidden');
+        } else {
+          group.classList.remove('is-hidden');
+          allGroupsHidden = false;
+        }
+      });
+    }
+
+    var emptyState = document.querySelector('.archive-empty-state');
+    if (emptyState) {
+      emptyState.hidden = !allGroupsHidden;
+    }
+
+    // 칩 상태는 항상 업데이트 (items 여부 무관)
+    var chips = document.querySelectorAll('.filter-chip');
+    chips.forEach(function (chip) {
+      var isActive = chip.dataset.filter === category;
+      chip.classList.toggle('is-active', isActive);
+      chip.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+  }
+
+  function init() {
+    var chips = document.querySelectorAll('.filter-chip');
+    if (!chips.length) return;
+    chips.forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        filterByCategory(chip.dataset.filter);
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+})();
+  </script>
 </body>
 </html>
