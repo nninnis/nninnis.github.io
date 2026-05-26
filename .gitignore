@@ -22,6 +22,9 @@ Gemfile.lock
 # Agent Team 회의록 (로컬 기록용)
 _meetings/
 
+# Game dev 임시 스펙 파일
+_workspace/
+
 # Environment variables & secrets
 .env
 .env.*
