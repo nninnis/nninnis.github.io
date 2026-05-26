@@ -16,7 +16,6 @@ Gemfile.lock
 .idea/
 
 # Claude Code
-CLAUDE.md
 .claude/settings.local.json
 
 # Agent Team 회의록 (로컬 기록용)
