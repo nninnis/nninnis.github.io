@@ -4,13 +4,7 @@ title: Archive
 permalink: /archive/
 ---
 
-<header class="header">
-  <nav class="nav">
-    <a href="{{ '/' | relative_url }}">home</a>
-    <a href="{{ '/archive/' | relative_url }}">archive</a>
-    <a href="{{ '/about/' | relative_url }}">about</a>
-  </nav>
-</header>
+{% include nav.html %}
 
 <main class="main archive-main">
   <section class="archive">

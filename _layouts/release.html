@@ -1,0 +1,62 @@
+---
+layout: default
+---
+
+{% include nav.html %}
+
+<main class="main release-main">
+  <article class="release-detail">
+    <a class="release-back" href="{{ '/releases/' | relative_url }}">&larr; releases</a>
+
+    <header class="release-head">
+      <span class="featured-label">{{ page.status | default: page.kind }}</span>
+      <h1 class="release-title-lg">{{ page.title }}</h1>
+      {% if page.tagline %}<p class="release-tagline-lg">{{ page.tagline }}</p>{% endif %}
+    </header>
+
+    {% if page.store_url %}
+    <div class="app-store-link">
+      <a href="{{ page.store_url }}" target="_blank" rel="noopener">App Store &rarr;</a>
+    </div>
+    {% endif %}
+
+    {% if page.embed %}
+    {% assign game_url = '/games/' | append: page.embed | append: '/' | relative_url %}
+    <div class="game-embed" style="max-width: {{ page.embed_maxwidth | default: 420 }}px; padding-top: {{ page.embed_ratio | default: 175 }}%;">
+      <iframe src="{{ game_url }}" allow="autoplay" loading="lazy"></iframe>
+    </div>
+    <p class="game-fullscreen">
+      <a href="{{ game_url }}" target="_blank" rel="noopener">전체 화면으로 플레이 &rarr;</a>
+    </p>
+    {% endif %}
+
+    {% if content != "" %}
+    <div class="release-body post-content">
+      {{ content }}
+    </div>
+    {% endif %}
+
+    {% if page.linked_category %}
+    {% assign rel_posts = site.posts | where: "category", page.linked_category %}
+    {% if rel_posts.size > 0 %}
+    <div class="release-posts">
+      <h2 class="section-label">개발 기록</h2>
+      <ul class="post-list">
+        {% for post in rel_posts %}
+        <li>
+          <a href="{{ post.url | relative_url }}">
+            <span class="post-title">{{ post.title }}</span>
+            <span class="post-date">{{ post.date | date: "%Y.%m.%d" }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    {% endif %}
+  </article>
+</main>
+
+<footer class="footer">
+  <p>&copy; {{ site.time | date: "%Y" }}</p>
+</footer>

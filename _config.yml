@@ -12,6 +12,11 @@ plugins:
   - jekyll-feed
   - jekyll-seo-tag
 
+collections:
+  releases:
+    output: true
+    permalink: /releases/:name/
+
 defaults:
   - scope:
       path: ""
@@ -23,6 +28,11 @@ defaults:
       type: "pages"
     values:
       layout: default
+  - scope:
+      path: ""
+      type: "releases"
+    values:
+      layout: release
 
 exclude:
   - Gemfile

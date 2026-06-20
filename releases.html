@@ -1,0 +1,29 @@
+---
+layout: default
+title: Releases
+permalink: /releases/
+---
+
+{% include nav.html %}
+
+<main class="main releases-main">
+  <section class="releases">
+    <h1>Releases</h1>
+    <p class="releases-intro">정식 출시한 앱과 게임. 프로토타입과 습작은 <a href="{{ '/archive/' | relative_url }}">archive</a>에 있다.</p>
+
+    {% assign items = site.releases | sort: "order" %}
+    <div class="releases-grid">
+      {% for item in items %}
+      <a class="release-card" href="{{ item.url | relative_url }}">
+        <span class="release-label">{{ item.status | default: item.kind }}</span>
+        <span class="release-card-title">{{ item.title }}</span>
+        {% if item.tagline %}<span class="release-card-tagline">{{ item.tagline }}</span>{% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+</main>
+
+<footer class="footer">
+  <p>&copy; {{ site.time | date: "%Y" }}</p>
+</footer>
