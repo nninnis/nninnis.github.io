@@ -17,7 +17,7 @@ permalink: /about/
 
     <ul class="about-meta">
       <li><span class="about-key">글</span><span class="about-val">AI · Claude Code · 1인 개발</span></li>
-      <li><span class="about-key">출시작</span><span class="about-val"><a href="https://apps.apple.com/kr/app/painting-star/id6762936757" target="_blank" rel="noopener">Painting Star &rarr;</a></span></li>
+      <li><span class="about-key">개발자 사이트</span><span class="about-val"><a href="https://nninnis.github.io/apps/" target="_blank" rel="noopener">바로가기 &rarr;</a></span></li>
     </ul>
 
     <ul class="about-links">
