@@ -762,17 +762,17 @@ a:hover {
 
 .releases-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
 
 .release-card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   border: 1px solid var(--light);
   border-radius: 8px;
-  padding: 24px;
+  padding: 18px 16px;
   transition: border-color 0.2s;
 }
 
@@ -781,7 +781,7 @@ a:hover {
 }
 
 .release-label {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -789,16 +789,22 @@ a:hover {
 }
 
 .release-card-title {
-  font-size: 19px;
+  font-size: 16px;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--black);
 }
 
 .release-card-tagline {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--gray);
   line-height: 1.5;
+}
+
+@media (max-width: 480px) {
+  .releases-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Releases - 하위 페이지 */
