@@ -33,3 +33,7 @@ _workspace/
 
 # Logs
 *.log
+
+# Claude Code 설정 — 로컬 전용 관리
+CLAUDE.md
+.claude/
