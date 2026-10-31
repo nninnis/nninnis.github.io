@@ -16,6 +16,7 @@ permalink: /about/
     </div>
 
     <ul class="about-meta">
+      <li><span class="about-key">이전</span><span class="about-val">뷰티 브랜드 웹 서비스 운영 · 설계</span></li>
       <li><span class="about-key">글</span><span class="about-val">AI · Claude Code · Codex · 1인 개발</span></li>
       <li><span class="about-key">개발자 사이트</span><span class="about-val"><a href="https://nninnis.github.io/apps/" target="_blank" rel="noopener">바로가기 &rarr;</a></span></li>
     </ul>
