@@ -12,6 +12,7 @@ permalink: /archive/
 
     <div class="filter-chips" role="tablist" aria-label="카테고리 필터">
       <button type="button" class="filter-chip is-active" data-filter="all" role="tab" aria-selected="true">All</button>
+      <button type="button" class="filter-chip" data-filter="si" role="tab" aria-selected="false">SI 현장기</button>
       <button type="button" class="filter-chip" data-filter="claude-code" role="tab" aria-selected="false">Claude Code</button>
       <button type="button" class="filter-chip" data-filter="ai" role="tab" aria-selected="false">AI</button>
       <button type="button" class="filter-chip" data-filter="dev" role="tab" aria-selected="false">Dev</button>
@@ -21,7 +22,8 @@ permalink: /archive/
 
     {% assign ps_posts = site.posts | where: "category", "painting-star" %}
     {% assign game_posts = site.posts | where: "category", "game" %}
-    {% assign other_posts = site.posts | where_exp: "post", "post.category != 'painting-star'" | where_exp: "post", "post.category != 'game'" %}
+    {% assign si_posts = site.posts | where: "category", "si" %}
+    {% assign other_posts = site.posts | where_exp: "post", "post.category != 'painting-star'" | where_exp: "post", "post.category != 'game'" | where_exp: "post", "post.category != 'si'" %}
 
     {% if ps_posts.size > 0 %}
     <div class="archive-category">
@@ -44,6 +46,22 @@ permalink: /archive/
       <h2>게임</h2>
       <ul class="archive-list">
         {% for post in game_posts %}
+        <li data-category="{{ post.category }}">
+          <a href="{{ post.url | relative_url }}">
+            <span class="archive-date">{{ post.date | date: "%m.%d" }}</span>
+            <span class="archive-title">{{ post.title }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if si_posts.size > 0 %}
+    <div class="archive-category">
+      <h2>SI 현장기</h2>
+      <ul class="archive-list">
+        {% for post in si_posts %}
         <li data-category="{{ post.category }}">
           <a href="{{ post.url | relative_url }}">
             <span class="archive-date">{{ post.date | date: "%m.%d" }}</span>
